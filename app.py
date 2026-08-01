@@ -19,9 +19,31 @@ st.set_page_config(
 st.title("📈 株価予測 & テクニカル分析ダッシュボード")
 
 # --------------------------------------------------
-# 企業名 ➔ (正式表示名, ティッカーコード) 変換辞書
+# 未上場企業のリスト（案内用）
+# --------------------------------------------------
+UNLISTED_COMPANIES = {}
+
+# --------------------------------------------------
+# 企業名・指数 ➔ (正式表示名, ティッカーコード) 変換辞書
 # --------------------------------------------------
 COMPANY_MAP = {
+    # 主要指数・市場データ
+    "日経平均": ("日経平均株価", "^N225"), "日経225": ("日経平均株価", "^N225"), "N225": ("日経平均株価", "^N225"),
+    "S&P500": ("S&P 500", "^GSPC"), "SP500": ("S&P 500", "^GSPC"),
+    "ナスダック": ("NASDAQ Composite", "^IXIC"), "NASDAQ": ("NASDAQ Composite", "^IXIC"),
+    
+    # 宇宙関連銘柄
+    "アクセルスペース": ("アクセルスペースホールディングス", "402A.T"),
+    "アクセルスペースホールディングス": ("アクセルスペースホールディングス", "402A.T"),
+    "402A": ("アクセルスペースホールディングス", "402A.T"),
+    "アストロスケール": ("アストロスケールホールディングス", "186A.T"),
+    "アストロスケールホールディングス": ("アストロスケールホールディングス", "186A.T"),
+    "186A": ("アストロスケールホールディングス", "186A.T"),
+    "ispace": ("ispace", "9348.T"), "アイスペース": ("ispace", "9348.T"),
+    
+    # 新規・注目銘柄
+    "キオクシア": ("キオクシアホールディングス", "285A.T"), "285A": ("キオクシアホールディングス", "285A.T"),
+    
     # 日本株（主要銘柄）
     "トヨタ": ("トヨタ自動車", "7203.T"), "トヨタ自動車": ("トヨタ自動車", "7203.T"),
     "ソニー": ("ソニーグループ", "6758.T"), "ソニーグループ": ("ソニーグループ", "6758.T"),
@@ -51,17 +73,22 @@ COMPANY_MAP = {
 st.sidebar.header("設定")
 
 user_input = st.sidebar.text_input(
-    "企業名 または 銘柄コードを入力", 
-    value="トヨタ"
+    "企業名・指数 または 銘柄コードを入力", 
+    value="アクセルスペース"
 ).strip()
+
+# 未上場企業チェック
+if user_input in UNLISTED_COMPANIES:
+    st.warning(f"⚠️ {UNLISTED_COMPANIES[user_input]}")
+    st.stop()
 
 # 辞書から検索（該当がなければ入力値をそのまま表示・補正）
 if user_input in COMPANY_MAP:
     display_name, ticker = COMPANY_MAP[user_input]
 else:
     ticker = user_input
-    # 数字4桁入力の自動補正（例: "7203" ➔ "7203.T"）
-    if ticker.isdigit() and len(ticker) == 4:
+    # 日本株の自動補正（例: "7203" ➔ "7203.T", "402A" ➔ "402A.T"）
+    if not ticker.startswith("^") and not ticker.endswith(".T") and len(ticker) == 4 and not ticker.isalpha():
         ticker = f"{ticker}.T"
     display_name = user_input
 
@@ -102,15 +129,15 @@ def load_and_prep_data(symbol, time_period):
 # データの読み込み
 df = load_and_prep_data(ticker, period)
 
-if df is None or len(df) < 50:
-    st.error(f"「{user_input}」（コード: {ticker}）のデータ取得に失敗しました。正しい企業名または銘柄コード（例: 7203.T, AAPL）を入力してください。")
+if df is None or len(df) < 20:
+    st.error(f"「{user_input}」（コード: {ticker}）のデータ取得に失敗しました。正しい名称またはコード（例: 402A.T, アクセルスペース, 7203.T）を入力してください。")
     st.stop()
 
 # --------------------------------------------------
 # メイン画面表示
 # --------------------------------------------------
 
-# ★ 企業名とティッカーコードを上部に大きく表示
+# 企業名・指数名とティッカーコードを表示
 st.markdown(f"## 🏢 {display_name}  `({ticker})`")
 
 st.markdown("---")
@@ -155,7 +182,7 @@ st.caption("※予測モデルは過去データに基づいたデモです。�
 st.markdown("---")
 
 # 2. チャート表示セクション
-st.subheader(f"📊 株価チャート & テクニカル分析: {display_name}")
+st.subheader(f"📊 チャート & テクニカル分析: {display_name}")
 
 fig = go.Figure()
 
