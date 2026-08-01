@@ -19,30 +19,30 @@ st.set_page_config(
 st.title("📈 株価予測 & テクニカル分析ダッシュボード")
 
 # --------------------------------------------------
-# 企業名 ➔ ティッカーシンボル 変換辞書（よく使われる主要銘柄）
+# 企業名 ➔ (正式表示名, ティッカーコード) 変換辞書
 # --------------------------------------------------
 COMPANY_MAP = {
     # 日本株（主要銘柄）
-    "トヨタ": "7203.T", "トヨタ自動車": "7203.T",
-    "ソニー": "6758.T", "ソニーグループ": "6758.T",
-    "ソフトバンク": "9984.T", "ソフトバンクグループ": "9984.T",
-    "キーエンス": "6861.T",
-    "ファーストリテイリング": "9983.T", "ユニクロ": "9983.T",
-    "任天堂": "7974.T",
-    "三菱UFJ": "8306.T", "三菱UFJフィナンシャル・グループ": "8306.T",
-    "レーザーテック": "6920.T",
-    "東京エレクトロン": "8035.T",
-    "NTT": "9432.T", "日本電信電話": "9432.T",
-    "楽天": "4755.T", "楽天グループ": "4755.T",
+    "トヨタ": ("トヨタ自動車", "7203.T"), "トヨタ自動車": ("トヨタ自動車", "7203.T"),
+    "ソニー": ("ソニーグループ", "6758.T"), "ソニーグループ": ("ソニーグループ", "6758.T"),
+    "ソフトバンク": ("ソフトバンクグループ", "9984.T"), "ソフトバンクグループ": ("ソフトバンクグループ", "9984.T"),
+    "キーエンス": ("キーエンス", "6861.T"),
+    "ファーストリテイリング": ("ファーストリテイリング", "9983.T"), "ユニクロ": ("ファーストリテイリング", "9983.T"),
+    "任天堂": ("任天堂", "7974.T"),
+    "三菱UFJ": ("三菱UFJフィナンシャル・グループ", "8306.T"), "三菱UFJフィナンシャル・グループ": ("三菱UFJフィナンシャル・グループ", "8306.T"),
+    "レーザーテック": ("レーザーテック", "6920.T"),
+    "東京エレクトロン": ("東京エレクトロン", "8035.T"),
+    "NTT": ("日本電信電話", "9432.T"), "日本電信電話": ("日本電信電話", "9432.T"),
+    "楽天": ("楽天グループ", "4755.T"), "楽天グループ": ("楽天グループ", "4755.T"),
     
     # 米国株（主要銘柄）
-    "アップル": "AAPL", "Apple": "AAPL",
-    "エヌビディア": "NVDA", "Nvidia": "NVDA", "NVIDIA": "NVDA",
-    "マイクロソフト": "MSFT", "Microsoft": "MSFT",
-    "アマゾン": "AMZN", "Amazon": "AMZN",
-    "アルファベット": "GOOGL", "グーグル": "GOOGL", "Google": "GOOGL",
-    "メタ": "META", "Meta": "META", "フェイスブック": "META",
-    "テスラ": "TSLA", "Tesla": "TSLA"
+    "アップル": ("Apple", "AAPL"), "Apple": ("Apple", "AAPL"),
+    "エヌビディア": ("NVIDIA", "NVDA"), "Nvidia": ("NVIDIA", "NVDA"), "NVIDIA": ("NVIDIA", "NVDA"),
+    "マイクロソフト": ("Microsoft", "MSFT"), "Microsoft": ("Microsoft", "MSFT"),
+    "アマゾン": ("Amazon.com", "AMZN"), "Amazon": ("Amazon.com", "AMZN"),
+    "アルファベット": ("Alphabet (Google)", "GOOGL"), "グーグル": ("Alphabet (Google)", "GOOGL"), "Google": ("Alphabet (Google)", "GOOGL"),
+    "メタ": ("Meta Platforms", "META"), "Meta": ("Meta Platforms", "META"), "フェイスブック": ("Meta Platforms", "META"),
+    "テスラ": ("Tesla", "TSLA"), "Tesla": ("Tesla", "TSLA")
 }
 
 # --------------------------------------------------
@@ -50,20 +50,20 @@ COMPANY_MAP = {
 # --------------------------------------------------
 st.sidebar.header("設定")
 
-# 入力フォーム（企業名またはシンボル）
 user_input = st.sidebar.text_input(
     "企業名 または 銘柄コードを入力", 
     value="トヨタ"
 ).strip()
 
-# 企業名辞書からティッカーシンボルを検索（見つからなければ入力値をそのまま使用）
-ticker = COMPANY_MAP.get(user_input, user_input)
-
-# 日本株で数字4桁だけ入力された場合（例: "7203" ➔ "7203.T" に補正）
-if ticker.isdigit() and len(ticker) == 4:
-    ticker = f"{ticker}.T"
-
-st.sidebar.caption(f"📌 適用中の銘柄コード: `{ticker}`")
+# 辞書から検索（該当がなければ入力値をそのまま表示・補正）
+if user_input in COMPANY_MAP:
+    display_name, ticker = COMPANY_MAP[user_input]
+else:
+    ticker = user_input
+    # 数字4桁入力の自動補正（例: "7203" ➔ "7203.T"）
+    if ticker.isdigit() and len(ticker) == 4:
+        ticker = f"{ticker}.T"
+    display_name = user_input
 
 # 取得期間の選択
 period_options = {"1年": "1y", "2年": "2y", "5年": "5y"}
@@ -103,12 +103,17 @@ def load_and_prep_data(symbol, time_period):
 df = load_and_prep_data(ticker, period)
 
 if df is None or len(df) < 50:
-    st.error(f"「{user_input}」（コード: {ticker}）のデータ取得に失敗しました。企業名か正しいコード（例: 7203.T, AAPL）を入力してください。")
+    st.error(f"「{user_input}」（コード: {ticker}）のデータ取得に失敗しました。正しい企業名または銘柄コード（例: 7203.T, AAPL）を入力してください。")
     st.stop()
 
 # --------------------------------------------------
 # メイン画面表示
 # --------------------------------------------------
+
+# ★ 企業名とティッカーコードを上部に大きく表示
+st.markdown(f"## 🏢 {display_name}  `({ticker})`")
+
+st.markdown("---")
 
 # 1. 簡易AI予測セクション
 st.subheader("🤖 AIによる翌日株価予測 (LightGBM)")
@@ -150,7 +155,7 @@ st.caption("※予測モデルは過去データに基づいたデモです。�
 st.markdown("---")
 
 # 2. チャート表示セクション
-st.subheader("📊 株価チャート & テクニカル分析")
+st.subheader(f"📊 株価チャート & テクニカル分析: {display_name}")
 
 fig = go.Figure()
 
