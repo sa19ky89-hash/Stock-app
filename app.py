@@ -1,5 +1,7 @@
 import datetime
 import lightgbm as lgb
+import matplotlib
+matplotlib.use('Agg')  # バックエンドの競合防止
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -170,30 +172,44 @@ random_seed = 42
 # --------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_and_prep_data(symbol, time_period):
-    df = yf.download(symbol, period=time_period)
-    if df.empty:
-        return None
+    try:
+        df = yf.download(symbol, period=time_period, progress=False)
+        if df.empty:
+            return None
 
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
+        # MultiIndexの解除
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
 
-    # 数値型に明示的に変換（TypeError防止）
-    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-        if col in df.columns:
+        # 重複カラムの削除
+        df = df.loc[:, ~df.columns.duplicated()].copy()
+
+        # 必須カラムの存在チェックと1次元Series化の保証
+        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in required_cols:
+            if col not in df.columns:
+                return None
+            if isinstance(df[col], pd.DataFrame):
+                df[col] = df[col].iloc[:, 0]
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # テクニカル指標の作成
-    df['SMA_20'] = SMAIndicator(close=df['Close'], window=20).sma_indicator()
-    df['RSI'] = RSIIndicator(close=df['Close'], window=14).rsi()
-    macd = MACD(close=df['Close'])
-    df['MACD'] = macd.macd()
-    df['Return'] = df['Close'].pct_change()
+        close_s = df['Close'].astype(float)
 
-    # 目的変数：翌日のリターン（株価変動率）
-    df['Target_Return'] = df['Return'].shift(-1)
+        # テクニカル指標の作成
+        df['SMA_20'] = SMAIndicator(close=close_s, window=20).sma_indicator()
+        df['RSI'] = RSIIndicator(close=close_s, window=14).rsi()
+        macd = MACD(close=close_s)
+        df['MACD'] = macd.macd()
+        df['Return'] = close_s.pct_change()
 
-    df.dropna(inplace=True)
-    return df
+        # 目的変数：翌日のリターン（株価変動率）
+        df['Target_Return'] = df['Return'].shift(-1)
+
+        df.dropna(inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"データの前処理中にエラーが発生しました: {e}")
+        return None
 
 
 df = load_and_prep_data(ticker, period)
@@ -246,10 +262,10 @@ def run_timeseries_cv(_X, _y, n_splits, seed):
         fold_model.fit(X_train, y_train)
         preds = fold_model.predict(X_test)
 
-        mae = mean_absolute_error(y_test, preds)
-        rmse = np.sqrt(mean_squared_error(y_test, preds))
+        mae = float(mean_absolute_error(y_test, preds))
+        rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-        residuals = y_test.values - preds
+        residuals = (y_test.values - preds).astype(float)
         all_residuals.extend(residuals.tolist())
 
         fold_results.append({
@@ -265,7 +281,7 @@ def run_timeseries_cv(_X, _y, n_splits, seed):
         last_fold_dates = _X.index[test_idx]
 
     cv_df = pd.DataFrame(fold_results)
-    residual_pool = np.array(all_residuals)
+    residual_pool = np.array(all_residuals, dtype=float)
 
     return cv_df, residual_pool, last_fold_actual, last_fold_pred, last_fold_dates
 
@@ -274,8 +290,8 @@ cv_df, residual_pool, last_actual, last_pred, last_dates = run_timeseries_cv(
     X, y, n_splits, random_seed
 )
 
-avg_mae = cv_df["MAE"].mean()
-avg_rmse = cv_df["RMSE"].mean()
+avg_mae = float(cv_df["MAE"].mean())
+avg_rmse = float(cv_df["RMSE"].mean())
 
 cv_col1, cv_col2, cv_col3 = st.columns(3)
 cv_col1.metric("平均 MAE（平均絶対誤差）", f"{avg_mae * 100:.3f} %")
@@ -345,40 +361,38 @@ def run_monte_carlo_forecast(_model, base_df, residual_pool, features,
                               future_dates, n_sims, seed):
     rng = np.random.default_rng(seed)
     n_days = len(future_dates)
-    price_paths = np.zeros((n_sims, n_days))
+    price_paths = np.zeros((n_sims, n_days), dtype=float)
 
     for s in range(n_sims):
         sim_df = base_df.copy()
         for i, f_date in enumerate(future_dates):
             latest_feat = sim_df[features].iloc[[-1]].astype(float)
-            pred_return = _model.predict(latest_feat)[0]
+            pred_return = float(_model.predict(latest_feat)[0])
 
-            noise = rng.choice(residual_pool)
+            noise = float(rng.choice(residual_pool))
             adj_return = pred_return + noise
 
             last_close = float(sim_df['Close'].iloc[-1])
-            next_close = last_close * (1 + adj_return)
+            next_close = float(last_close * (1.0 + adj_return))
+            mean_vol = float(sim_df["Volume"].mean())
 
             new_row = pd.DataFrame(
                 {
-                    "Open": next_close,
-                    "High": next_close,
-                    "Low": next_close,
-                    "Close": next_close,
-                    "Volume": sim_df["Volume"].mean(),
-                    "Return": adj_return,
+                    "Open": [next_close],
+                    "High": [next_close],
+                    "Low": [next_close],
+                    "Close": [next_close],
+                    "Volume": [mean_vol],
+                    "Return": [adj_return],
                 },
                 index=[f_date],
             )
             sim_df = pd.concat([sim_df, new_row])
 
-            sim_df["SMA_20"] = SMAIndicator(
-                close=sim_df["Close"], window=20
-            ).sma_indicator()
-            sim_df["RSI"] = RSIIndicator(
-                close=sim_df["Close"], window=14
-            ).rsi()
-            sim_df["MACD"] = MACD(close=sim_df["Close"]).macd()
+            close_s = sim_df["Close"].astype(float)
+            sim_df["SMA_20"] = SMAIndicator(close=close_s, window=20).sma_indicator()
+            sim_df["RSI"] = RSIIndicator(close=close_s, window=14).rsi()
+            sim_df["MACD"] = MACD(close=close_s).macd()
 
             price_paths[s, i] = next_close
 
@@ -398,10 +412,10 @@ p75 = np.percentile(price_paths, 75, axis=0)
 p95 = np.percentile(price_paths, 95, axis=0)
 
 start_p = float(df['Close'].iloc[-1])
-end_median = p50[-1]
-end_p05 = p05[-1]
-end_p95 = p95[-1]
-total_change = ((end_median - start_p) / start_p) * 100
+end_median = float(p50[-1])
+end_p05 = float(p05[-1])
+end_p95 = float(p95[-1])
+total_change = float(((end_median - start_p) / start_p) * 100)
 
 col1, col2, col3 = st.columns(3)
 col1.metric("現在（最新）の株価", f"¥{start_p:,.1f}")
@@ -510,14 +524,14 @@ st.subheader("📅 今後1ヶ月の日別予想株価一覧（信頼区間つき
 pred_records = []
 prev_close = start_p
 for i, f_date in enumerate(future_dates):
-    median_price = p50[i]
+    median_price = float(p50[i])
     diff = median_price - prev_close
     pred_records.append({
         "日付": f_date.strftime("%Y-%m-%d (%a)"),
         "予想株価（中央値）": round(median_price, 1),
         "前日比": round(diff, 1),
-        "5%タイル（弱気）": round(p05[i], 1),
-        "95%タイル（強気）": round(p95[i], 1),
+        "5%タイル（弱気）": round(float(p05[i]), 1),
+        "95%タイル（強気）": round(float(p95[i]), 1),
     })
     prev_close = median_price
 
@@ -581,19 +595,20 @@ with col_imp1:
 with col_imp2:
     st.markdown("##### 2. プラス/マイナス影響の方向性 (SHAP Summary)")
     try:
-        # SHAP値の抽出 (型エラーを防ぐため numpy 配列に固定変換)
         explainer = shap.TreeExplainer(model)
-        shap_raw = explainer.shap_values(X)
-        
-        # 多次元リストや Explanation オブジェクトの場合の安全抽出
-        if isinstance(shap_raw, list):
-            shap_array = np.array(shap_raw[0])
+        shap_res = explainer(X)
+
+        # SHAP値の型を安全に標準化
+        if hasattr(shap_res, "values"):
+            shap_array = np.array(shap_res.values, dtype=float)
         else:
-            shap_array = np.array(shap_raw)
+            shap_array = np.array(shap_res, dtype=float)
+
+        if shap_array.ndim == 3:
+            shap_array = shap_array[:, :, 0]
 
         X_jp = X.rename(columns=FEATURE_LABELS_JP)
 
-        # Matplotlib フィギュア作成
         fig_shap, ax = plt.subplots(figsize=(7, 4.5))
         shap.summary_plot(
             shap_array, X_jp, show=False, plot_size=None
@@ -602,7 +617,7 @@ with col_imp2:
         st.pyplot(fig_shap)
         plt.close(fig_shap)
     except Exception as e:
-        st.warning(f"SHAPグラフの表示中に一時的なエラーが発生しました: {e}")
+        st.info("※SHAP分析グラフの表示をスキップしました。右側のGainスコアをご参照ください。")
 
 with st.expander("📖 SHAPグラフの見方ガイド"):
     st.markdown("""
@@ -644,4 +659,3 @@ with st.expander("📊 過去のテクニカル分析チャート（ローソク
         margin=dict(l=20, r=20, t=20, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
-
