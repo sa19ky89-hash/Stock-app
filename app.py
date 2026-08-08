@@ -1,8 +1,10 @@
 import datetime
 import lightgbm as lgb
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import shap
 import streamlit as st
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit
@@ -100,6 +102,16 @@ COMPANY_MAP = {
 }
 
 FEATURES = ['Close', 'Volume', 'SMA_20', 'RSI', 'MACD', 'Return']
+
+# 日本語表示用ラベル辞書
+FEATURE_LABELS_JP = {
+    'Close': '終値 (Close)',
+    'Volume': '出来高 (Volume)',
+    'SMA_20': '20日移動平均 (SMA_20)',
+    'RSI': 'RSI (相対力指数)',
+    'MACD': 'MACD',
+    'Return': '前日比リターン (Return)',
+}
 
 # --------------------------------------------------
 # サイドバー（設定パラメータ）
@@ -541,48 +553,67 @@ st.caption(
 st.markdown("---")
 
 # --------------------------------------------------
-# 6. AIが重視した指標（特徴量重要度 / Feature Importance）
+# 6. AIが重視した指標（特徴量重要度 & SHAP方向性分析）
 # --------------------------------------------------
-st.subheader("💡 AIがこの銘柄の予測で重視した指標（特徴量重要度）")
+st.subheader("💡 AIがこの銘柄の予測で重視した指標（特徴量重要度 & SHAP分析）")
 
 st.caption(
-    "LightGBMモデルが予測精度を向上させるにあたり、どのテクニカル指標・データをどれくらい重視したか（Gain：誤差改善の貢献度）を示しています。"
-    "銘柄の性質によって、トレンド指標（移動平均など）を重視するか、モメンタム（RSI・出来高など）を重視するかの違いが現れます。"
+    "LightGBMモデルが予測するにあたり、どの指標を重視したか（Gain）、および「その指標が高いと株価を上げる（＋）／下げる（−）どちらに作用したか（SHAP値）」を可視化しています。"
 )
 
-feature_labels_jp = {
-    'Close': '終値 (Close)',
-    'Volume': '出来高 (Volume)',
-    'SMA_20': '20日移動平均 (SMA_20)',
-    'RSI': 'RSI (相対力指数)',
-    'MACD': 'MACD',
-    'Return': '前日比リターン (Return)',
-}
+col_imp1, col_imp2 = st.columns(2)
 
-# Gain（予測精度向上の貢献度）に基づく重要度の抽出
-importances = model.booster_.feature_importance(importance_type="gain")
-importance_df = pd.DataFrame({
-    'Feature': [feature_labels_jp.get(f, f) for f in FEATURES],
-    'Importance': importances
-}).sort_values(by='Importance', ascending=True)
+with col_imp1:
+    st.markdown("##### 1. 重要度の大きさ (Gainスコア)")
+    # Gain（予測精度向上の貢献度）に基づく重要度の抽出
+    importances = model.booster_.feature_importance(importance_type="gain")
+    importance_df = pd.DataFrame({
+        'Feature': [FEATURE_LABELS_JP.get(f, f) for f in FEATURES],
+        'Importance': importances
+    }).sort_values(by='Importance', ascending=True)
 
-fig_imp = go.Figure(
-    go.Bar(
-        x=importance_df['Importance'],
-        y=importance_df['Feature'],
-        orientation='h',
-        marker=dict(color='#0284c7'),
+    fig_imp = go.Figure(
+        go.Bar(
+            x=importance_df['Importance'],
+            y=importance_df['Feature'],
+            orientation='h',
+            marker=dict(color='#0284c7'),
+        )
     )
-)
 
-fig_imp.update_layout(
-    height=320,
-    margin=dict(l=20, r=20, t=20, b=20),
-    xaxis_title="重要度スコア (Gain: 誤差削減の貢献度)",
-    yaxis_title="テクニカル指標",
-)
+    fig_imp.update_layout(
+        height=320,
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis_title="重要度スコア (Gain)",
+        yaxis_title="テクニカル指標",
+    )
+    st.plotly_chart(fig_imp, use_container_width=True)
 
-st.plotly_chart(fig_imp, use_container_width=True)
+with col_imp2:
+    st.markdown("##### 2. プラス/マイナス影響の方向性 (SHAP Summary)")
+    # SHAP値の計算
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer(X)
+
+    # 日本語名ラベルを適用したデータフレームの作成
+    X_jp = X.rename(columns=FEATURE_LABELS_JP)
+
+    # SHAP Bee Swarm プロットの作成
+    fig_shap, ax = plt.subplots(figsize=(7, 4.5))
+    shap.summary_plot(
+        shap_values.values, X_jp, show=False, plot_size=None
+    )
+    plt.tight_layout()
+    st.pyplot(fig_shap)
+
+with st.expander("📖 SHAPグラフの見方ガイド"):
+    st.markdown("""
+    * **横軸（SHAP value）**: 0より右（プラス）は株価を**押し上げる**影響、0より左（マイナス）は株価を**押し下げる**影響を意味します。
+    * **ドットの色**:
+      * <span style="color:red; font-weight:bold;">赤色 (High)</span> : そのテクニカル指標の値が高い状態（例: RSIが高い、出来高が多いなど）
+      * <span style="color:blue; font-weight:bold;">青色 (Low)</span> : そのテクニカル指標の値が低い状態（例: RSIが低い、出来高が少ないなど）
+    * **読み解き例**: 「赤色のドットが右側（プラス領域）に多い」場合 ➔ **「その指標が高くなると、AIは株価が上がると判断しやすい」** ことを表します。
+    """, unsafe_allow_unsafe_scale=True)
 
 st.markdown("---")
 
