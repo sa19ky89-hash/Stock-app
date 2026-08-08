@@ -177,6 +177,11 @@ def load_and_prep_data(symbol, time_period):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
+    # 数値型に明示的に変換（TypeError防止）
+    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
     # テクニカル指標の作成
     df['SMA_20'] = SMAIndicator(close=df['Close'], window=20).sma_indicator()
     df['RSI'] = RSIIndicator(close=df['Close'], window=14).rsi()
@@ -206,8 +211,8 @@ if df is None or len(df) < 20:
 st.markdown(f"## 🏢 {display_name}  `({ticker})`")
 st.markdown("---")
 
-X = df[FEATURES]
-y = df['Target_Return']
+X = df[FEATURES].astype(float)
+y = df['Target_Return'].astype(float)
 
 # --------------------------------------------------
 # 1. 時系列分割による精度検証（Walk-forward validation）
@@ -217,15 +222,12 @@ st.subheader("🧪 モデル精度の検証（時系列分割 / Time Series CV�
 st.caption(
     "通常のランダム分割ではなく、「過去のデータだけで学習 → その先の未来データで検証」"
     "を守った時系列分割（TimeSeriesSplit）で検証しています。"
-    "により、未来のデータが学習に混入する「リーク」を防ぎます。"
+    "これにより、未来のデータが学習に混入する「リーク」を防ぎます。"
 )
 
 
 @st.cache_data(ttl=3600)
 def run_timeseries_cv(_X, _y, n_splits, seed):
-    """時系列分割でLightGBMを検証し、各フォールドの誤差指標と
-    予測残差（実測 - 予測）を集める。残差はのちのモンテカルロ
-    シミュレーションで「現実的なブレ幅」として再利用する。"""
     tscv = TimeSeriesSplit(n_splits=n_splits)
 
     fold_results = []
@@ -258,7 +260,6 @@ def run_timeseries_cv(_X, _y, n_splits, seed):
             "RMSE": rmse,
         })
 
-        # 最後のフォールドを可視化用に保持
         last_fold_actual = y_test.values
         last_fold_pred = preds
         last_fold_dates = _X.index[test_idx]
@@ -315,12 +316,11 @@ with st.expander("📉 最終フォールド：実測 vs 予測（翌日リタ�
 st.markdown("---")
 
 # --------------------------------------------------
-# 2. 本番モデルの学習（全データで学習し直す）
+# 2. 本番モデルの学習
 # --------------------------------------------------
 model = lgb.LGBMRegressor(random_state=random_seed, verbose=-1, n_estimators=100)
 model.fit(X, y)
 
-# 未来20営業日の日付作成
 last_date = df.index[-1]
 future_dates = pd.date_range(
     start=last_date + pd.Timedelta(days=1), periods=35, freq="B"
@@ -329,7 +329,7 @@ future_dates = [d for d in future_dates if d > last_date][:20]
 
 
 # --------------------------------------------------
-# 3. モンテカルロ・シミュレーションによる再帰予測 + 信頼区間
+# 3. モンテカルロ・シミュレーション
 # --------------------------------------------------
 st.subheader("🤖 AIによる今後1ヶ月（20営業日）の株価予測（信頼区間つき）")
 
@@ -343,9 +343,6 @@ st.caption(
 @st.cache_data(ttl=3600, show_spinner=False)
 def run_monte_carlo_forecast(_model, base_df, residual_pool, features,
                               future_dates, n_sims, seed):
-    """再帰予測をn_sims回繰り返す。各ステップで
-    予測リターンにブートストラップした残差を加算することで、
-    モデルが説明しきれない「現実のブレ」を反映する。"""
     rng = np.random.default_rng(seed)
     n_days = len(future_dates)
     price_paths = np.zeros((n_sims, n_days))
@@ -353,10 +350,9 @@ def run_monte_carlo_forecast(_model, base_df, residual_pool, features,
     for s in range(n_sims):
         sim_df = base_df.copy()
         for i, f_date in enumerate(future_dates):
-            latest_feat = sim_df[features].iloc[[-1]]
+            latest_feat = sim_df[features].iloc[[-1]].astype(float)
             pred_return = _model.predict(latest_feat)[0]
 
-            # 検証で得た残差からランダムに1つ抽出し、予測に上乗せする
             noise = rng.choice(residual_pool)
             adj_return = pred_return + noise
 
@@ -395,7 +391,6 @@ with st.spinner(f"{n_simulations}回のシミュレーションを実行中...")
         n_simulations, random_seed,
     )
 
-# パーセンタイルの計算（5%, 25%, 50%(中央値), 75%, 95%）
 p05 = np.percentile(price_paths, 5, axis=0)
 p25 = np.percentile(price_paths, 25, axis=0)
 p50 = np.percentile(price_paths, 50, axis=0)
@@ -421,13 +416,12 @@ col3.metric(
 )
 
 # --------------------------------------------------
-# 4. 実績＋予測ファンチャート（信頼区間の帯グラフ）
+# 4. 実績＋予測ファンチャート
 # --------------------------------------------------
 st.subheader("📈 1ヶ月予測株価チャート（信頼区間つき）")
 
 fig_pred = go.Figure()
 
-# 直近60日分の実績価格
 recent_df = df.tail(60)
 fig_pred.add_trace(
     go.Scatter(
@@ -439,7 +433,6 @@ fig_pred.add_trace(
     )
 )
 
-# 起点（最終実績日）を各系列の先頭に接続
 x_future = [df.index[-1]] + list(future_dates)
 
 
@@ -453,7 +446,6 @@ p50_full = _with_anchor(p50)
 p75_full = _with_anchor(p75)
 p95_full = _with_anchor(p95)
 
-# 90%信頼区間（5%〜95%）の帯
 fig_pred.add_trace(
     go.Scatter(
         x=x_future, y=p95_full, mode="lines",
@@ -469,7 +461,6 @@ fig_pred.add_trace(
     )
 )
 
-# 50%信頼区間（25%〜75%）の帯
 fig_pred.add_trace(
     go.Scatter(
         x=x_future, y=p75_full, mode="lines",
@@ -485,7 +476,6 @@ fig_pred.add_trace(
     )
 )
 
-# 中央値ライン
 fig_pred.add_trace(
     go.Scatter(
         x=x_future, y=p50_full, mode="lines+markers",
@@ -513,7 +503,7 @@ st.caption(
 )
 
 # --------------------------------------------------
-# 5. 日別予測価格テーブル（信頼区間つき）
+# 5. 日別予測価格テーブル
 # --------------------------------------------------
 st.subheader("📅 今後1ヶ月の日別予想株価一覧（信頼区間つき）")
 
@@ -565,7 +555,6 @@ col_imp1, col_imp2 = st.columns(2)
 
 with col_imp1:
     st.markdown("##### 1. 重要度の大きさ (Gainスコア)")
-    # Gain（予測精度向上の貢献度）に基づく重要度の抽出
     importances = model.booster_.feature_importance(importance_type="gain")
     importance_df = pd.DataFrame({
         'Feature': [FEATURE_LABELS_JP.get(f, f) for f in FEATURES],
@@ -591,20 +580,29 @@ with col_imp1:
 
 with col_imp2:
     st.markdown("##### 2. プラス/マイナス影響の方向性 (SHAP Summary)")
-    # SHAP値の計算
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer(X)
+    try:
+        # SHAP値の抽出 (型エラーを防ぐため numpy 配列に固定変換)
+        explainer = shap.TreeExplainer(model)
+        shap_raw = explainer.shap_values(X)
+        
+        # 多次元リストや Explanation オブジェクトの場合の安全抽出
+        if isinstance(shap_raw, list):
+            shap_array = np.array(shap_raw[0])
+        else:
+            shap_array = np.array(shap_raw)
 
-    # 日本語名ラベルを適用したデータフレームの作成
-    X_jp = X.rename(columns=FEATURE_LABELS_JP)
+        X_jp = X.rename(columns=FEATURE_LABELS_JP)
 
-    # SHAP Bee Swarm プロットの作成
-    fig_shap, ax = plt.subplots(figsize=(7, 4.5))
-    shap.summary_plot(
-        shap_values.values, X_jp, show=False, plot_size=None
-    )
-    plt.tight_layout()
-    st.pyplot(fig_shap)
+        # Matplotlib フィギュア作成
+        fig_shap, ax = plt.subplots(figsize=(7, 4.5))
+        shap.summary_plot(
+            shap_array, X_jp, show=False, plot_size=None
+        )
+        plt.tight_layout()
+        st.pyplot(fig_shap)
+        plt.close(fig_shap)
+    except Exception as e:
+        st.warning(f"SHAPグラフの表示中に一時的なエラーが発生しました: {e}")
 
 with st.expander("📖 SHAPグラフの見方ガイド"):
     st.markdown("""
@@ -646,3 +644,4 @@ with st.expander("📊 過去のテクニカル分析チャート（ローソク
         margin=dict(l=20, r=20, t=20, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
+
