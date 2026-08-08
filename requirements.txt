@@ -8,3 +8,4 @@ ta
 scikit-learn
 shap
 matplotlib
+japanize-matplotlib
