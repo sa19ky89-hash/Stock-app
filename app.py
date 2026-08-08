@@ -205,7 +205,7 @@ st.subheader("🧪 モデル精度の検証（時系列分割 / Time Series CV�
 st.caption(
     "通常のランダム分割ではなく、「過去のデータだけで学習 → その先の未来データで検証」"
     "を守った時系列分割（TimeSeriesSplit）で検証しています。"
-    "これにより、未来のデータが学習に混入する「リーク」を防ぎます。"
+    "により、未来のデータが学習に混入する「リーク」を防ぎます。"
 )
 
 
@@ -541,7 +541,53 @@ st.caption(
 st.markdown("---")
 
 # --------------------------------------------------
-# 6. 過去の実績ローソク足チャート
+# 6. AIが重視した指標（特徴量重要度 / Feature Importance）
+# --------------------------------------------------
+st.subheader("💡 AIがこの銘柄の予測で重視した指標（特徴量重要度）")
+
+st.caption(
+    "LightGBMモデルが予測精度を向上させるにあたり、どのテクニカル指標・データをどれくらい重視したか（Gain：誤差改善の貢献度）を示しています。"
+    "銘柄の性質によって、トレンド指標（移動平均など）を重視するか、モメンタム（RSI・出来高など）を重視するかの違いが現れます。"
+)
+
+feature_labels_jp = {
+    'Close': '終値 (Close)',
+    'Volume': '出来高 (Volume)',
+    'SMA_20': '20日移動平均 (SMA_20)',
+    'RSI': 'RSI (相対力指数)',
+    'MACD': 'MACD',
+    'Return': '前日比リターン (Return)',
+}
+
+# Gain（予測精度向上の貢献度）に基づく重要度の抽出
+importances = model.booster_.feature_importance(importance_type="gain")
+importance_df = pd.DataFrame({
+    'Feature': [feature_labels_jp.get(f, f) for f in FEATURES],
+    'Importance': importances
+}).sort_values(by='Importance', ascending=True)
+
+fig_imp = go.Figure(
+    go.Bar(
+        x=importance_df['Importance'],
+        y=importance_df['Feature'],
+        orientation='h',
+        marker=dict(color='#0284c7'),
+    )
+)
+
+fig_imp.update_layout(
+    height=320,
+    margin=dict(l=20, r=20, t=20, b=20),
+    xaxis_title="重要度スコア (Gain: 誤差削減の貢献度)",
+    yaxis_title="テクニカル指標",
+)
+
+st.plotly_chart(fig_imp, use_container_width=True)
+
+st.markdown("---")
+
+# --------------------------------------------------
+# 7. 過去の実績ローソク足チャート
 # --------------------------------------------------
 with st.expander("📊 過去のテクニカル分析チャート（ローソク足）を表示"):
     fig = go.Figure()
