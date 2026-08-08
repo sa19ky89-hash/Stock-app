@@ -626,7 +626,7 @@ with st.expander("📖 SHAPグラフの見方ガイド"):
       * <span style="color:red; font-weight:bold;">赤色 (High)</span> : そのテクニカル指標の値が高い状態（例: RSIが高い、出来高が多いなど）
       * <span style="color:blue; font-weight:bold;">青色 (Low)</span> : そのテクニカル指標の値が低い状態（例: RSIが低い、出来高が少ないなど）
     * **読み解き例**: 「赤色のドットが右側（プラス領域）に多い」場合 ➔ **「その指標が高くなると、AIは株価が上がると判断しやすい」** ことを表します。
-    """, unsafe_allow_unsafe_scale=True)
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
