@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>株価予測 & テクニカル分析ダッシュボード 構造解説</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#035485',
+              900: '#0c2e4e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+    body { font-family: 'Noto Sans JP', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-slate-900 via-brand-900 to-slate-900 text-white sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl p-2 bg-sky-500/20 rounded-lg border border-sky-400/30 text-sky-400">📈</span>
+        <div>
+          <h1 class="font-bold text-lg sm:text-xl tracking-tight">株価予測 & テクニカル分析ダッシュボード</h1>
+          <p class="text-xs text-slate-300">Pythonコード構造 & アルゴリズム詳細解説資料</p>
+        </div>
+      </div>
+      <div class="text-right hidden sm:block">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <i class="fa-solid fa-code-branch mr-1"></i> 完全版レポート
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div class="max-w-3xl">
+        <span class="text-brand-600 font-bold text-sm tracking-wider uppercase mb-2 block">System Architecture & Overview</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight mb-4">
+          このプログラムは何をしているのか？
+        </h2>
+        <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
+          指定した企業の株価データを自動取得し、<strong>6つの説明変数（テクニカル指標）</strong>を元に<strong>機械学習（LightGBM）</strong>で翌日の価格変動パターンを学習。さらに過去の予測誤差を用いた<strong>モンテカルロ・シミュレーション</strong>と<strong>SHAP要因分析</strong>により、今後1ヶ月の株価推移を<span class="bg-sky-100 text-brand-700 font-semibold px-1.5 py-0.5 rounded">「ブレ幅（90%信頼区間）」および「上昇・下落の要因（プラス・マイナス方向性）」付きで可視化</span>するWebアプリです。
+        </p>
+      </div>
+
+      <!-- Quick Highlights Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex items-start space-x-3">
+          <div class="p-2.5 bg-blue-500 text-white rounded-lg text-sm shrink-0 mt-0.5"><i class="fa-solid fa-globe"></i></div>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">データ自動取得</h4>
+            <p class="text-xs text-slate-500 mt-0.5">yfinanceで日米銘柄・指数データをリアルタイム連携</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex items-start space-x-3">
+          <div class="p-2.5 bg-indigo-500 text-white rounded-lg text-sm shrink-0 mt-0.5"><i class="fa-solid fa-brain"></i></div>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">時系列AI学習</h4>
+            <p class="text-xs text-slate-500 mt-0.5">LightGBM×時系列CVで未来漏洩（リーク）を完全防止</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex items-start space-x-3">
+          <div class="p-2.5 bg-emerald-500 text-white rounded-lg text-sm shrink-0 mt-0.5"><i class="fa-solid fa-chart-line"></i></div>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">確率的シミュレーション</h4>
+            <p class="text-xs text-slate-500 mt-0.5">300回の試行でリスク範囲（信頼区間）を定量化</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex items-start space-x-3">
+          <div class="p-2.5 bg-rose-500 text-white rounded-lg text-sm shrink-0 mt-0.5"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">SHAP要因・方向性分析</h4>
+            <p class="text-xs text-slate-500 mt-0.5">各指標がプラス/マイナスどちらに効いているかを可視化</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+
+    <!-- Section 1: Processing Flow Diagram -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Step-by-Step Architecture</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">1. アプリ全体の処理フロー</h3>
+        </div>
+        <span class="text-2xl text-slate-400"><i class="fa-solid fa-diagram-project"></i></span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+        <!-- Step 1 -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative flex flex-col justify-between">
+          <div>
+            <div class="w-7 h-7 bg-brand-600 text-white font-bold rounded-full flex items-center justify-center text-xs mb-3">1</div>
+            <h4 class="font-bold text-slate-900 text-sm mb-1">銘柄指定・取得</h4>
+            <p class="text-xs text-slate-600">日本語名からティッカーコードへ自動変換し、`yfinance` で過去株価を取得。</p>
+          </div>
+          <div class="mt-4 pt-2 border-t border-slate-200 text-[11px] text-slate-400 font-mono">COMPANY_MAP</div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative flex flex-col justify-between">
+          <div>
+            <div class="w-7 h-7 bg-brand-600 text-white font-bold rounded-full flex items-center justify-center text-xs mb-3">2</div>
+            <h4 class="font-bold text-slate-900 text-sm mb-1">特徴量作成</h4>
+            <p class="text-xs text-slate-600">SMA, RSI, MACD 等の指標を作成。目的変数は「翌日リターン」。</p>
+          </div>
+          <div class="mt-4 pt-2 border-t border-slate-200 text-[11px] text-slate-400 font-mono">load_and_prep_data</div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative flex flex-col justify-between">
+          <div>
+            <div class="w-7 h-7 bg-brand-600 text-white font-bold rounded-full flex items-center justify-center text-xs mb-3">3</div>
+            <h4 class="font-bold text-slate-900 text-sm mb-1">時系列CV検証</h4>
+            <p class="text-xs text-slate-600">`TimeSeriesSplit` で過去から順に検証。精度評価と残差（誤差）を保持。</p>
+          </div>
+          <div class="mt-4 pt-2 border-t border-slate-200 text-[11px] text-slate-400 font-mono">run_timeseries_cv</div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative flex flex-col justify-between">
+          <div>
+            <div class="w-7 h-7 bg-brand-600 text-white font-bold rounded-full flex items-center justify-center text-xs mb-3">4</div>
+            <h4 class="font-bold text-slate-900 text-sm mb-1">モンテカルロ試行</h4>
+            <p class="text-xs text-slate-600">全データで学習後、残差をランダム加算しながら20営業日後まで300回再帰予測。</p>
+          </div>
+          <div class="mt-4 pt-2 border-t border-slate-200 text-[11px] text-slate-400 font-mono">run_monte_carlo</div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="bg-sky-50 p-4 rounded-xl border border-sky-200 relative flex flex-col justify-between">
+          <div>
+            <div class="w-7 h-7 bg-sky-600 text-white font-bold rounded-full flex items-center justify-center text-xs mb-3">5</div>
+            <h4 class="font-bold text-slate-900 text-sm mb-1">SHAP・信頼区間描画</h4>
+            <p class="text-xs text-slate-600">信頼区間ファンチャートに加え、SHAP分析で要因のプラス/マイナス方向を描画。</p>
+          </div>
+          <div class="mt-4 pt-2 border-t border-sky-200 text-[11px] text-sky-600 font-mono">Plotly / SHAP</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: EXPLANATORY VARIABLES (FEATURE ENGINEERING) DEEP DIVE -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Feature Engineering & Input Variables</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">2. モデルの説明変数（入力指標）とその役割・意味</h3>
+        </div>
+        <span class="text-2xl text-brand-500"><i class="fa-solid fa-list-check"></i></span>
+      </div>
+
+      <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6">
+        機械学習モデル（LightGBM）が「明日株価が上がるか下がるか」を予測するための判断材料として、以下の**6つの説明変数（`FEATURES`）**を日々のデータから計算して入力しています。
+      </p>
+
+      <!-- Grid of 6 Features -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Feature 1: Close -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-md font-mono text-xs font-bold">Close</span>
+              <span class="text-[11px] text-slate-400 font-medium">価格基本指標</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">終値（当日の最終株価）</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              その日の取引の最後に成立した株価。市場参加者全体の最終的な合意価格であり、移動平均やリターン計算の基礎となる最も重要な原データです。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 株価の現在の絶対水準や、移動平均線（SMA_20）との乖離率を判定する基準となる。
+          </div>
+        </div>
+
+        <!-- Feature 2: Volume -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-md font-mono text-xs font-bold">Volume</span>
+              <span class="text-[11px] text-slate-400 font-medium">市場のエネルギー</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">出来高（売買成立株数）</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              一日に売買が成立した株式の総数。「相場のエネルギー」を表し、出来高の急増は市場の関心の高まりやトレンド転換の強力なサインとなります。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 「価格変動に伴う出来高の増加」を検知し、ダマシのない本物のトレンドかを識別する。
+          </div>
+        </div>
+
+        <!-- Feature 3: SMA_20 -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md font-mono text-xs font-bold">SMA_20</span>
+              <span class="text-[11px] text-slate-400 font-medium">トレンド指標</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">20日単純移動平均線</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              直近20営業日（約1か月間）の終値の平均値。日々の細かなノイズを除去し、短期〜中期のトレンドの方向性をクリアに示します。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 株価が平均線より上か下か、押し目買い・戻り売りのサポート線として効いているかを学習。
+          </div>
+        </div>
+
+        <!-- Feature 4: RSI -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-purple-100 text-purple-800 rounded-md font-mono text-xs font-bold">RSI (14日)</span>
+              <span class="text-[11px] text-slate-400 font-medium">オシレーター指標</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">RSI（相対力指数）</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              過去14日間の値上がり幅と値下がり幅の割合から、売買の過熱感を0〜100%の数値で表します。一般に70%以上は「買われすぎ」、30%以下は「売られすぎ」と判断されます。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 相場の過熱（買われすぎ・売られすぎ）に伴う自律反発・反落のリバウンド局面を捉える。
+          </div>
+        </div>
+
+        <!-- Feature 5: MACD -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-md font-mono text-xs font-bold">MACD</span>
+              <span class="text-[11px] text-slate-400 font-medium">モメンタム指標</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">MACD（移動平均収束拡散）</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              2つの指数平滑移動平均（EMA：短期12日・長期26日）の差から算出した指標。トレンドの発生や転換のタイミング（ゴールデンクロス・デッドクロス）を捉えます。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 新しい上昇・下落トレンドが始まったばかりの勢い（モーメンタム）を判断する。
+          </div>
+        </div>
+
+        <!-- Feature 6: Return -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/90 flex flex-col justify-between hover:border-sky-400 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-md font-mono text-xs font-bold">Return</span>
+              <span class="text-[11px] text-slate-400 font-medium">日次変化率</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-base mb-1">前日比リターン（株価騰落率）</h4>
+            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+              前日終値からの価格の変化率（例: `+1.5%` や `-0.8%`）。株価そのものは銘柄によって数千円〜数万円とバラツキますが、率（%）に直すことで統計的な比較・学習が容易になります。
+            </p>
+          </div>
+          <div class="bg-white p-2.5 rounded border border-slate-200 text-[11px] text-slate-500">
+            <strong class="text-slate-700">AIでの役割:</strong> 直近1日の値動きの勢いや、連続で上げている・下げているといった短期モメンタムを学習。
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Target Variable Connection Box -->
+      <div class="mt-6 p-4 bg-sky-50 border border-sky-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="text-xs">
+          <span class="font-bold text-sky-900 text-sm block mb-1">🎯 目的変数（予測ターゲット）：Target_Return</span>
+          <p class="text-sky-800 leading-relaxed">
+            モデルは上記6つの説明変数（本日の状況）から、正解データである<strong>「翌日の前日比リターン（Target_Return）」</strong>を予測するように学習します。株価の「金額そのもの」ではなく「変化率（％）」を予測対象にすることで、モデルの安定性を確保しています。
+          </p>
+        </div>
+        <div class="shrink-0 font-mono text-xs font-bold bg-white px-3 py-2 rounded-lg border border-sky-300 text-sky-700">
+          X: FEATURES ➔ y: Target_Return
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW SECTION 3: TIME SERIES CROSS VALIDATION & SPLIT NUMBER DEEP DIVE -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Validation Strategy & Split Selection</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">3. 時系列クロスバリデーション（TSCV）と分割数（n_splits）の考え方</h3>
+        </div>
+        <span class="text-2xl text-indigo-500"><i class="fa-solid fa-shield-halved"></i></span>
+      </div>
+
+      <!-- Grid for TSCV Concept & Split Selection -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+        
+        <!-- Left Column: Why TSCV? -->
+        <div class="space-y-4">
+          <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+            <span>なぜ通常のK-Foldではなく「時系列分割（TSCV）」なのか？</span>
+          </h4>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            通常のK-Foldクロスバリデーションはデータをランダムにシャッフルするため、「2024年のデータで学習して2023年を予測する」といった<strong>「未来のデータ漏洩（データリーク）」</strong>が発生してしまいます。これでは検証時の精度は異常に高く見えても、実際の未来予測では全く使い物になりません。
+          </p>
+          <div class="bg-indigo-50/70 p-4 rounded-xl border border-indigo-100 text-xs text-indigo-900 space-y-2">
+            <div class="font-bold text-indigo-950 flex items-center">
+              <i class="fa-solid fa-clock-rotate-left mr-1.5 text-indigo-600"></i> 時系列分割（Expanding Window）の原則
+            </div>
+            <p class="leading-relaxed">
+              「過去のデータだけで学習 ➔ その直後の未来データで検証」という時間の順序（時間軸の矢印）を厳密に守りながら検証を繰り返します。本番と同じ評価基準を再現できる唯一の方法です。
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Column: Is More Splits Always Better? -->
+        <div class="space-y-4">
+          <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+            <span>分割数（n_splits）は多ければ多いほど良いのか？</span>
+          </h4>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            結論から言うと、<strong>「単に分割数を増やせば良いというわけではありません」</strong>。
+            分割数を増やしすぎると、1つ目のFold（Fold 1）における初期の学習データ期間が極端に短くなり、モデルが正常に学習できずに異常な誤差が生じるリスクがあります。
+          </p>
+          
+          <div class="bg-amber-50 p-3.5 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+            <div class="font-bold text-amber-950 flex items-center">
+              <i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 分割数が多すぎる場合のデメリット
+            </div>
+            <ul class="list-disc list-inside space-y-0.5 text-amber-800">
+              <li>Fold 1 の学習データ不足による精度過小評価と異常残差の混入</li>
+              <li>検証期間が短くなりすぎ、一時的なニュース等ノイズの影響を受けやすくなる</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Optimal Split Table for Reference -->
+      <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+        <h4 class="font-bold text-slate-900 text-sm mb-3 flex items-center">
+          <i class="fa-solid fa-sliders text-brand-600 mr-2"></i> データ取得期間に応じた最適分割数（n_splits）の推奨基準
+        </h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-white border-b border-slate-200 text-slate-700">
+                <th class="p-2.5 font-bold">データ取得期間</th>
+                <th class="p-2.5 font-bold">サンプル数（約）</th>
+                <th class="p-2.5 font-bold">推奨分割数 (`n_splits`)</th>
+                <th class="p-2.5 font-bold">特記事項・理由</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/80 text-slate-600">
+              <tr>
+                <td class="p-2.5 font-bold text-slate-900">1年 (1y)</td>
+                <td class="p-2.5 font-mono">約250営業日</td>
+                <td class="p-2.5 font-bold text-brand-600 font-mono">3 〜 5 分割 (初期値: 5)</td>
+                <td class="p-2.5">初期Foldでも数か月分の学習データを確保可能。最もバランスが良い。</td>
+              </tr>
+              <tr>
+                <td class="p-2.5 font-bold text-slate-900">2年 (2y)</td>
+                <td class="p-2.5 font-mono">約500営業日</td>
+                <td class="p-2.5 font-bold text-brand-600 font-mono">5 〜 7 分割</td>
+                <td class="p-2.5">データ量に余裕が出るため、分割数をやや増やして残差サンプル数を増加させても安全。</td>
+              </tr>
+              <tr>
+                <td class="p-2.5 font-bold text-slate-900">5年 (5y)</td>
+                <td class="p-2.5 font-mono">約1250営業日</td>
+                <td class="p-2.5 font-bold text-brand-600 font-mono">5 〜 10 分割</td>
+                <td class="p-2.5">十分なデータ量。ただしあまり古い相場環境が直近の検証を阻害しないよう注意。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW SECTION 4: MONTE CARLO SIMULATION & SIMULATION NUMBER VALIDITY -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Probabilistic Forecasting & Sample Size</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">4. モンテカルロ・シミュレーションと試行回数の妥当性</h3>
+        </div>
+        <span class="text-2xl text-emerald-500"><i class="fa-solid fa-dice-three"></i></span>
+      </div>
+
+      <!-- Concept Overview -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+        
+        <!-- Left: Resampling Mechanics -->
+        <div class="space-y-4">
+          <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            <span>「残差ブートストラップ」による再帰予測メカニズム</span>
+          </h4>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            AIが予測する単一の株価（点予測）は平均的なものに過ぎません。本アプリでは、時系列CVで蓄積した「過去の予測誤差（残差プール）」からランダムに1つ誤差を抽出し、AIの予測リターンに加算しながら20営業日先まで1日ずつ再帰予測します。
+          </p>
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 font-mono text-xs space-y-1 text-slate-700">
+            <div class="text-slate-400 text-[10px]">【t日目 ➔ t+1日目の計算式】</div>
+            <div><span class="text-emerald-600 font-bold">調整後リターン</span> = AI予測リターン + ランダム抽出(残差プール)</div>
+            <div><span class="text-sky-600 font-bold">翌日予想株価</span> = 本日株価 × (1 + 調整後リターン)</div>
+          </div>
+        </div>
+
+        <!-- Right: Why 300 to 500 Sims is Optimal? -->
+        <div class="space-y-4">
+          <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            <span>試行回数（n_simulations）は「300〜500回」がなぜ妥当か？</span>
+          </h4>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            統計学における「大数の法則」により、シミュレーションの推定誤差（標準誤差）は<strong>試行回数 $N$ の平方根（$\sqrt{N}$）に反比例して減少</strong>します。300〜500回に達すると確率分布（信頼区間の帯）が十分に収束し、それ以上増やしてもグラフの形や結論はほとんど変化しなくなります。
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Simulation Count Comparison Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- 100 Sims -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div class="font-bold text-slate-800 text-sm mb-1 flex items-center justify-between">
+            <span>100 回試行</span>
+            <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]">高速 / 軽量</span>
+          </div>
+          <p class="text-slate-500 mb-2">推定誤差: $\approx 10\%$ ($\frac{1}{\sqrt{100}}$)</p>
+          <p class="text-slate-600 leading-relaxed">
+            計算時間は一瞬（1秒未満）ですが、上位5%や下位5%などの信頼区間の端（外れ値側）が実行のたびにややカクつき、安定性に欠けます。
+          </p>
+        </div>
+
+        <!-- 300-500 Sims (Optimal) -->
+        <div class="bg-emerald-50/80 p-4 rounded-xl border border-emerald-300 text-xs relative">
+          <span class="absolute -top-2.5 right-3 bg-emerald-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">アプリ初期設定（推奨）</span>
+          <div class="font-bold text-emerald-950 text-sm mb-1 flex items-center justify-between">
+            <span>300 〜 500 回試行</span>
+            <span class="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[10px] font-bold">ベストバランス</span>
+          </div>
+          <p class="text-emerald-700 mb-2">推定誤差: $\approx 4.5\sim 5.7\%$ ($\frac{1}{\sqrt{300\sim 500}}$)</p>
+          <p class="text-emerald-900 leading-relaxed font-medium">
+            画面のレスポンス（1〜3秒程度の待ち時間）を損なわず、90%信頼区間の帯も非常に滑らかに収束します。Webアプリとして最も理想的な設定です。
+          </p>
+        </div>
+
+        <!-- 10000 Sims -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div class="font-bold text-slate-800 text-sm mb-1 flex items-center justify-between">
+            <span>10,000 回試行</span>
+            <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px]">機関投資家レベル</span>
+          </div>
+          <p class="text-slate-500 mb-2">推定誤差: $< 1\%$ ($\frac{1}{\sqrt{10000}}$)</p>
+          <p class="text-slate-600 leading-relaxed">
+            極めて精密な分布が得られますが、200,000回（$10,000 \times 20\text{営業日}$）のテクニカル指標再計算ループが発生し、Web処理が重くなります。
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 5: FEATURE IMPORTANCE VS SHAP ANALYSIS -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Feature Interpretation & Explainability</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">5. 特徴量重要度（Gain）と SHAP分析（方向性）の違い</h3>
+        </div>
+        <span class="text-2xl text-rose-500"><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Gain Importance -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2 text-brand-600 font-bold text-sm mb-2">
+            <i class="fa-solid fa-chart-bar"></i>
+            <span>① 重要度スコア（Gain） ➔ 「影響の大きさ」</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed mb-3">
+            LightGBMが予測の分岐を作成する際、<strong>どの指標が一番「エラー（誤差）削減に貢献したか」</strong>を表す指標です。
+          </p>
+          <div class="bg-white p-3 rounded border border-slate-200 text-xs space-y-1">
+            <div class="font-bold text-slate-800 text-[11px]">【メリットと限界】</div>
+            <p class="text-slate-500">〇「AIが何を一番頼りにしているか」が一目でわかる。</p>
+            <p class="text-rose-600 font-medium">✕「上がると予測しているのか、下がると予測しているのか（プラス/マイナス）」の方向性は判別できない。</p>
+          </div>
+        </div>
+
+        <!-- SHAP Analysis -->
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2 text-rose-600 font-bold text-sm mb-2">
+            <i class="fa-solid fa-[#ff2a6d]"></i>
+            <span>② SHAP分析（Summary Plot） ➔ 「方向性と影響」</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed mb-3">
+            各データポイントが<strong>株価予測を上げる（＋）方向、下げる（−）方向のどちらにどれくらい引っ張ったか</strong>を厳密に計算します。
+          </p>
+          <div class="bg-white p-3 rounded border border-slate-200 text-xs space-y-1">
+            <div class="font-bold text-slate-800 text-[11px]">【グラフの読み解きルール】</div>
+            <p class="text-slate-600">・<strong>右側（プラス領域）</strong>：株価上昇の予測に寄与</p>
+            <p class="text-slate-600">・<strong>左側（マイナス領域）</strong>：株価下落の予測に寄与</p>
+            <p class="text-slate-600">・<span class="text-rose-600 font-bold">赤色(High)</span>：指標が高い時 / <span class="text-blue-600 font-bold">青色(Low)</span>：指標が低い時</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Concrete Interpretation Example Box -->
+      <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl text-xs text-slate-800">
+        <h4 class="font-bold text-rose-900 mb-1 flex items-center">
+          <i class="fa-solid fa-lightbulb text-rose-600 mr-1.5"></i> 読み解き例：銘柄ごとのAIの思考回路が判明する
+        </h4>
+        <p class="text-slate-700 leading-relaxed">
+          例えば **「RSI (相対力指数)」** の行で、<span class="text-rose-600 font-bold">赤色のドット（RSIが高い状態）</span>が<strong>左側（マイナス領域）</strong>に固まっていた場合：<br>
+          ➔ AIは「この銘柄はRSIが高くなると（買われすぎると）、過熱感から**翌日の株価が下がる可能性が高い**」と評価していることが分かります。
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 6: CORE MACHINE LEARNING ENGINE (LIGHTGBM) -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Core Machine Learning Engine</span>
+          <h3 class="text-xl sm:text-2xl font-bold text-slate-900">6. LightGBM（機械学習モデル）の仕組み</h3>
+        </div>
+        <span class="text-2xl text-amber-500"><i class="fa-solid fa-bolt"></i></span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2 text-brand-600 font-bold text-sm mb-2">
+            <i class="fa-solid fa-tree"></i>
+            <span>勾配ブースティング決定木</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            LightGBMは、浅い条件分岐の木を100本作成し、直前の木が犯したエラー（残差）を次の木が補正するように順番に学習していくアルゴリズムです。
+          </p>
+        </div>
+
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2 text-indigo-600 font-bold text-sm mb-2">
+            <i class="fa-solid fa-scale-balanced"></i>
+            <span>重回帰分析との違い</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            重回帰分析のような直線的（比例）ルールではなく、「RSI>70 かつ MACDが下降」といった非線形で複雑な相関ルールを自動で学習できます。
+          </p>
+        </div>
+
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2 text-emerald-600 font-bold text-sm mb-2">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>予測対象（目的変数）</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            株価そのものではなく、より定常性（統計的安定性）が高い「翌日の価格変化率（`Target_Return`）」を予測対象としています。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KEY FUNCTIONS TABLE -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+      <div class="border-b border-slate-100 pb-4 mb-6">
+        <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Code Functions</span>
+        <h3 class="text-xl sm:text-2xl font-bold text-slate-900">7. 主要関数の役割まとめ</h3>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+          <thead>
+            <tr class="bg-slate-100 border-b border-slate-200 text-slate-700">
+              <th class="p-3 font-bold rounded-tl-lg">関数名</th>
+              <th class="p-3 font-bold">主要処理 / 役割</th>
+              <th class="p-3 font-bold">入力パラメータ</th>
+              <th class="p-3 font-bold rounded-tr-lg">出力 / 戻り値</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-slate-600">
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 font-mono font-bold text-brand-600">load_and_prep_data</td>
+              <td class="p-3">株価データの取得、テクニカル指標の付与、目的変数（翌日リターン）の作成および欠損値処理。</td>
+              <td class="p-3 font-mono text-[11px]">symbol, time_period</td>
+              <td class="p-3 text-slate-800">前処理済み pandas.DataFrame</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 font-mono font-bold text-brand-600">run_timeseries_cv</td>
+              <td class="p-3">`TimeSeriesSplit` による時系列分割検証。各フォールドの MAE, RMSE を算出し、残差（予測誤差）を抽出・保持。</td>
+              <td class="p-3 font-mono text-[11px]">_X, _y, n_splits, seed</td>
+              <td class="p-3 text-slate-800">CV成績表, 残差配列(residual_pool), 最終検証用実測・予測データ</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 font-mono font-bold text-brand-600">run_monte_carlo_forecast</td>
+              <td class="p-3">本番モデルを用いて20営業日分を再帰予測。ステップごとに残差プールからランダム抽出したノイズを加算。これをN回試行。</td>
+              <td class="p-3 font-mono text-[11px]">_model, base_df, residual_pool, features, future_dates, n_sims, seed</td>
+              <td class="p-3 text-slate-800">未来株価パスの配列<br><span class="text-[11px] text-slate-400">(n_simulations × 20営業日)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 8: TECH STACK & REQUIREMENTS -->
+    <section class="bg-white p-6 rounded-2xl border border-slate-200">
+      <h4 class="font-bold text-slate-900 text-base mb-4 flex items-center space-x-2">
+        <i class="fa-solid fa-layer-group text-brand-500"></i>
+        <span>使用ライブラリ（Python Requirements）</span>
+      </h4>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+          <div class="font-bold text-slate-900">lightgbm</div>
+          <div class="text-[10px] text-slate-500">機械学習モデル</div>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+          <div class="font-bold text-slate-900">shap</div>
+          <div class="text-[10px] text-slate-500">要因・方向性分析</div>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+          <div class="font-bold text-slate-900">japanize-matplotlib</div>
+          <div class="text-[10px] text-slate-500">SHAP日本語描画</div>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+          <div class="font-bold text-slate-900">streamlit</div>
+          <div class="text-[10px] text-slate-500">Web Dashboard UI</div>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+          <div class="font-bold text-slate-900">yfinance / ta</div>
+          <div class="text-[10px] text-slate-500">株価取得・指標計算</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 text-center text-xs">
+    <div class="max-w-7xl mx-auto px-4">
+      <p>株価予測 & テクニカル分析ダッシュボード コード構造解説ドキュメント</p>
+      <p class="mt-1 text-slate-600">Generated for Technical Overview & Code Explanation</p>
+    </div>
+  </footer>
+
+</body>
+</html>
+
