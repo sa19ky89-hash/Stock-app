@@ -14,6 +14,14 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
 import yfinance as yf
 
+# 日本語描画ライブラリの読み込み試行（文字化け対策）
+HAS_JAPANIZE = False
+try:
+    import japanize_matplotlib
+    HAS_JAPANIZE = True
+except ImportError:
+    HAS_JAPANIZE = False
+
 # --------------------------------------------------
 # ページ基本設定
 # --------------------------------------------------
@@ -238,7 +246,7 @@ st.subheader("🧪 モデル精度の検証（時系列分割 / Time Series CV�
 st.caption(
     "通常のランダム分割ではなく、「過去のデータだけで学習 → その先の未来データで検証」"
     "を守った時系列分割（TimeSeriesSplit）で検証しています。"
-    "これにより、未来のデータが学習に混入する「リーク」を防ぎます。"
+    "により、未来のデータが学習に混入する「リーク」を防ぎます。"
 )
 
 
@@ -607,17 +615,24 @@ with col_imp2:
         if shap_array.ndim == 3:
             shap_array = shap_array[:, :, 0]
 
-        X_jp = X.rename(columns=FEATURE_LABELS_JP)
+        # 日本語フォントが利用可能な場合は日本語表記、未導入時は文字化けを防ぐため英語表記に切替
+        if HAS_JAPANIZE:
+            X_shap = X.rename(columns=FEATURE_LABELS_JP)
+        else:
+            X_shap = X.copy()
 
         fig_shap, ax = plt.subplots(figsize=(7, 4.5))
         shap.summary_plot(
-            shap_array, X_jp, show=False, plot_size=None
+            shap_array, X_shap, show=False, plot_size=None
         )
         plt.tight_layout()
         st.pyplot(fig_shap)
         plt.close(fig_shap)
+        
+        if not HAS_JAPANIZE:
+            st.caption("※日本語フォントライブラリ未導入のためY軸は英語表記です（`requirements.txt` に `japanize-matplotlib` を追加すると日本語化されます）。")
     except Exception as e:
-        st.info("※SHAP分析グラフの表示をスキップしました。右側のGainスコアをご参照ください。")
+        st.info("※SHAP分析グラフの表示をスキップしました。左側のGainスコアをご参照ください。")
 
 with st.expander("📖 SHAPグラフの見方ガイド"):
     st.markdown("""
