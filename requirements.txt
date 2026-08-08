@@ -6,3 +6,5 @@ lightgbm
 plotly
 ta
 scikit-learn
+shap
+matplotlib
