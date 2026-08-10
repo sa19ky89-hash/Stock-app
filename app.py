@@ -111,6 +111,13 @@ FEATURE_LABELS_JP = {
     'Return': '前日比リターン (Return)',
 }
 
+st.sidebar.link_button(
+    "📖 このダッシュボードの解説を見る",
+    "https://sa19ky89-hash.github.io/Stock-app/",
+    use_container_width=True,
+)
+st.sidebar.markdown("---")
+
 st.sidebar.header("設定")
 
 user_input = st.sidebar.text_input(
