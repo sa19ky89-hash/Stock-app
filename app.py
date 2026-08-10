@@ -331,45 +331,107 @@ st.caption(
 )
 
 
+def _extract_indicator_state(close_series):
+    """過去の終値から、RSI（Wilder平滑）とMACD（12/26日EMA）の
+    「内部の平滑値」を、最終営業日時点の状態として復元する。
+
+    ta ライブラリはRSI/MACDの最終出力値しか公開していないが、
+    RSI・MACDはいずれも指数平滑移動平均（EMA）なので、
+    ここで同じ計算式を使い、最終日時点のemaup/emadown（RSI用）と
+    ema_fast/ema_slow（MACD用）を再現する。これにより、以降の
+    シミュレーションでは「全履歴を再計算」せず「1ステップ分だけ
+    式で更新」する差分計算に切り替えられる（数学的には同じ結果）。"""
+    diff = close_series.diff(1)
+    up = diff.where(diff > 0, 0.0)
+    down = -diff.where(diff < 0, 0.0)
+
+    alpha_rsi = 1 / 14
+    emaup = up.ewm(alpha=alpha_rsi, adjust=False).mean()
+    emadown = down.ewm(alpha=alpha_rsi, adjust=False).mean()
+
+    ema_fast = close_series.ewm(span=12, adjust=False).mean()
+    ema_slow = close_series.ewm(span=26, adjust=False).mean()
+
+    return {
+        "emaup": float(emaup.iloc[-1]),
+        "emadown": float(emadown.iloc[-1]),
+        "ema_fast": float(ema_fast.iloc[-1]),
+        "ema_slow": float(ema_slow.iloc[-1]),
+        "last_20_closes": close_series.iloc[-20:].to_numpy(dtype=float),
+    }
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def run_monte_carlo_forecast(_model, base_df, residual_pool, features,
                               future_dates, n_sims, seed):
+    """全シミュレーションをベクトル化して一括計算する高速版。
+
+    以前は「シミュレーション回数 × 日数」回、1行ずつpredictし、
+    かつSMA/RSI/MACDを全履歴に対して再計算していたが、
+    ここでは「日数」回のループに圧縮し、各ステップで
+    全シミュレーション分を配列演算・バッチpredictでまとめて処理する。
+    """
     rng = np.random.default_rng(seed)
     n_days = len(future_dates)
+
+    close_series = base_df["Close"].astype(float)
+    state = _extract_indicator_state(close_series)
+
+    mean_volume = float(base_df["Volume"].mean())
+    alpha_rsi = 1 / 14
+    alpha_fast = 2 / (12 + 1)
+    alpha_slow = 2 / (26 + 1)
+
+    # 各シミュレーションの「現在の状態」をn_sims本のベクトルとして保持
+    last_close = np.full(n_sims, float(close_series.iloc[-1]))
+    last_return = np.full(n_sims, float(base_df["Return"].iloc[-1]))
+    emaup = np.full(n_sims, state["emaup"])
+    emadown = np.full(n_sims, state["emadown"])
+    ema_fast = np.full(n_sims, state["ema_fast"])
+    ema_slow = np.full(n_sims, state["ema_slow"])
+    # SMA_20用：直近20日終値のローリングウィンドウ（シミュレーションごとに保持）
+    window20 = np.tile(state["last_20_closes"], (n_sims, 1))
+
     price_paths = np.zeros((n_sims, n_days), dtype=float)
 
-    for s in range(n_sims):
-        sim_df = base_df.copy()
-        for i, f_date in enumerate(future_dates):
-            latest_feat = sim_df[features].iloc[[-1]].astype(float)
-            pred_return = float(_model.predict(latest_feat)[0])
+    for i in range(n_days):
+        sma20 = window20.mean(axis=1)
+        rsi = np.where(
+            emadown == 0, 100.0, 100.0 - 100.0 / (1.0 + emaup / emadown)
+        )
+        macd = ema_fast - ema_slow
 
-            noise = float(rng.choice(residual_pool))
-            adj_return = pred_return + noise
+        # その日について、全シミュレーション分の特徴量を1つのDataFrameにまとめる
+        feat_df = pd.DataFrame({
+            "Close": last_close,
+            "Volume": np.full(n_sims, mean_volume),
+            "SMA_20": sma20,
+            "RSI": rsi,
+            "MACD": macd,
+            "Return": last_return,
+        })[features]
 
-            last_close = float(sim_df['Close'].iloc[-1])
-            next_close = float(last_close * (1.0 + adj_return))
-            mean_vol = float(sim_df["Volume"].mean())
+        # ここが最大の高速化ポイント：n_sims回ではなく1回のpredictで済ませる
+        pred_returns = _model.predict(feat_df)
+        noise = rng.choice(residual_pool, size=n_sims)
+        adj_returns = pred_returns + noise
 
-            new_row = pd.DataFrame(
-                {
-                    "Open": [next_close],
-                    "High": [next_close],
-                    "Low": [next_close],
-                    "Close": [next_close],
-                    "Volume": [mean_vol],
-                    "Return": [adj_return],
-                },
-                index=[f_date],
-            )
-            sim_df = pd.concat([sim_df, new_row])
+        next_close = last_close * (1.0 + adj_returns)
 
-            close_s = sim_df["Close"].astype(float)
-            sim_df["SMA_20"] = SMAIndicator(close=close_s, window=20).sma_indicator()
-            sim_df["RSI"] = RSIIndicator(close=close_s, window=14).rsi()
-            sim_df["MACD"] = MACD(close=close_s).macd()
+        # RSI・MACDの状態を「全履歴再計算」ではなく「1ステップ分の式」で更新
+        gain = np.clip(next_close - last_close, 0, None)
+        loss = np.clip(last_close - next_close, 0, None)
+        emaup = alpha_rsi * gain + (1 - alpha_rsi) * emaup
+        emadown = alpha_rsi * loss + (1 - alpha_rsi) * emadown
+        ema_fast = alpha_fast * next_close + (1 - alpha_fast) * ema_fast
+        ema_slow = alpha_slow * next_close + (1 - alpha_slow) * ema_slow
 
-            price_paths[s, i] = next_close
+        # SMA_20用のローリングウィンドウを1日分スライド
+        window20 = np.concatenate([window20[:, 1:], next_close[:, None]], axis=1)
+
+        last_return = adj_returns
+        last_close = next_close
+        price_paths[:, i] = next_close
 
     return price_paths
 
