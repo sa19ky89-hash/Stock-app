@@ -40,7 +40,6 @@ UNLISTED_COMPANIES = {}
 # 企業名・指数 ➔ (正式表示名, ティッカーコード) 変換辞書
 # --------------------------------------------------
 COMPANY_MAP = {
-    # 主要指数・市場データ
     "日経平均": ("日経平均株価", "^N225"),
     "日経225": ("日経平均株価", "^N225"),
     "N225": ("日経平均株価", "^N225"),
@@ -48,16 +47,12 @@ COMPANY_MAP = {
     "SP500": ("S&P 500", "^GSPC"),
     "ナスダック": ("NASDAQ Composite", "^IXIC"),
     "NASDAQ": ("NASDAQ Composite", "^IXIC"),
-
-    # 重工・防衛・造船銘柄
     "三菱重工": ("三菱重工業", "7011.T"),
     "三菱重工業": ("三菱重工業", "7011.T"),
     "7011": ("三菱重工業", "7011.T"),
     "川崎重工": ("川崎重工業", "7012.T"),
     "川崎重工業": ("川崎重工業", "7012.T"),
     "IHI": ("IHI", "7013.T"),
-
-    # 宇宙関連銘柄
     "アクセルスペース": ("アクセルスペースホールディングス", "402A.T"),
     "アクセルスペースホールディングス": ("アクセルスペースホールディングス", "402A.T"),
     "402A": ("アクセルスペースホールディングス", "402A.T"),
@@ -66,12 +61,8 @@ COMPANY_MAP = {
     "186A": ("アストロスケールホールディングス", "186A.T"),
     "ispace": ("ispace", "9348.T"),
     "アイスペース": ("ispace", "9348.T"),
-
-    # 新規・注目銘柄
     "キオクシア": ("キオクシアホールディングス", "285A.T"),
     "285A": ("キオクシアホールディングス", "285A.T"),
-
-    # 日本株（主要銘柄）
     "トヨタ": ("トヨタ自動車", "7203.T"),
     "トヨタ自動車": ("トヨタ自動車", "7203.T"),
     "ソニー": ("ソニーグループ", "6758.T"),
@@ -90,8 +81,6 @@ COMPANY_MAP = {
     "日本電信電話": ("日本電信電話", "9432.T"),
     "楽天": ("楽天グループ", "4755.T"),
     "楽天グループ": ("楽天グループ", "4755.T"),
-
-    # 米国株（主要銘柄）
     "アップル": ("Apple", "AAPL"),
     "Apple": ("Apple", "AAPL"),
     "エヌビディア": ("NVIDIA", "NVDA"),
@@ -113,7 +102,6 @@ COMPANY_MAP = {
 
 FEATURES = ['Close', 'Volume', 'SMA_20', 'RSI', 'MACD', 'Return']
 
-# 日本語表示用ラベル辞書
 FEATURE_LABELS_JP = {
     'Close': '終値 (Close)',
     'Volume': '出来高 (Volume)',
@@ -123,21 +111,16 @@ FEATURE_LABELS_JP = {
     'Return': '前日比リターン (Return)',
 }
 
-# --------------------------------------------------
-# サイドバー（設定パラメータ）
-# --------------------------------------------------
 st.sidebar.header("設定")
 
 user_input = st.sidebar.text_input(
     "企業名・指数 または 銘柄コードを入力", value="三菱重工"
 ).strip()
 
-# 未上場企業チェック
 if user_input in UNLISTED_COMPANIES:
     st.warning(f"⚠️ {UNLISTED_COMPANIES[user_input]}")
     st.stop()
 
-# 辞書から検索
 if user_input in COMPANY_MAP:
     display_name, ticker = COMPANY_MAP[user_input]
 else:
@@ -151,7 +134,6 @@ else:
         ticker = f"{ticker}.T"
     display_name = user_input
 
-# 取得期間の選択
 period_options = {"1年": "1y", "2年": "2y", "5年": "5y"}
 selected_period_label = st.sidebar.selectbox(
     "学習用データ取得期間", list(period_options.keys())
@@ -175,9 +157,6 @@ n_simulations = st.sidebar.slider(
 random_seed = 42
 
 
-# --------------------------------------------------
-# データ取得 & 特徴量作成処理
-# --------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_and_prep_data(symbol, time_period):
     try:
@@ -185,14 +164,11 @@ def load_and_prep_data(symbol, time_period):
         if df.empty:
             return None
 
-        # MultiIndexの解除
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
-        # 重複カラムの削除
         df = df.loc[:, ~df.columns.duplicated()].copy()
 
-        # 必須カラムの存在チェックと1次元Series化の保証
         required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
         for col in required_cols:
             if col not in df.columns:
@@ -203,14 +179,12 @@ def load_and_prep_data(symbol, time_period):
 
         close_s = df['Close'].astype(float)
 
-        # テクニカル指標の作成
         df['SMA_20'] = SMAIndicator(close=close_s, window=20).sma_indicator()
         df['RSI'] = RSIIndicator(close=close_s, window=14).rsi()
         macd = MACD(close=close_s)
         df['MACD'] = macd.macd()
         df['Return'] = close_s.pct_change()
 
-        # 目的変数：翌日のリターン（株価変動率）
         df['Target_Return'] = df['Return'].shift(-1)
 
         df.dropna(inplace=True)
@@ -228,25 +202,18 @@ if df is None or len(df) < 20:
     )
     st.stop()
 
-# --------------------------------------------------
-# メイン画面表示
-# --------------------------------------------------
-
 st.markdown(f"## 🏢 {display_name}  `({ticker})`")
 st.markdown("---")
 
 X = df[FEATURES].astype(float)
 y = df['Target_Return'].astype(float)
 
-# --------------------------------------------------
-# 1. 時系列分割による精度検証（Walk-forward validation）
-# --------------------------------------------------
 st.subheader("🧪 モデル精度の検証（時系列分割 / Time Series CV）")
 
 st.caption(
     "通常のランダム分割ではなく、「過去のデータだけで学習 → その先の未来データで検証」"
     "を守った時系列分割（TimeSeriesSplit）で検証しています。"
-    "により、未来のデータが学習に混入する「リーク」を防ぎます。"
+    "これにより、未来のデータが学習に混入する「リーク」を防ぎます。"
 )
 
 
@@ -339,9 +306,6 @@ with st.expander("📉 最終フォールド：実測 vs 予測（翌日リタ�
 
 st.markdown("---")
 
-# --------------------------------------------------
-# 2. 本番モデルの学習
-# --------------------------------------------------
 model = lgb.LGBMRegressor(random_state=random_seed, verbose=-1, n_estimators=100)
 model.fit(X, y)
 
@@ -351,10 +315,6 @@ future_dates = pd.date_range(
 )
 future_dates = [d for d in future_dates if d > last_date][:20]
 
-
-# --------------------------------------------------
-# 3. モンテカルロ・シミュレーション
-# --------------------------------------------------
 st.subheader("🤖 AIによる今後1ヶ月（20営業日）の株価予測（信頼区間つき）")
 
 st.caption(
@@ -437,9 +397,6 @@ col3.metric(
     f"¥{end_p05:,.1f} 〜 ¥{end_p95:,.1f}",
 )
 
-# --------------------------------------------------
-# 4. 実績＋予測ファンチャート
-# --------------------------------------------------
 st.subheader("📈 1ヶ月予測株価チャート（信頼区間つき）")
 
 fig_pred = go.Figure()
@@ -524,9 +481,6 @@ st.caption(
     "帯が広いほど、その先の予測の不確実性が高いことを意味します。"
 )
 
-# --------------------------------------------------
-# 5. 日別予測価格テーブル
-# --------------------------------------------------
 st.subheader("📅 今後1ヶ月の日別予想株価一覧（信頼区間つき）")
 
 pred_records = []
@@ -564,14 +518,31 @@ st.caption(
 
 st.markdown("---")
 
-# --------------------------------------------------
-# 6. AIが重視した指標（特徴量重要度 & SHAP方向性分析）
-# --------------------------------------------------
 st.subheader("💡 AIがこの銘柄の予測で重視した指標（特徴量重要度 & SHAP分析）")
 
 st.caption(
     "LightGBMモデルが予測するにあたり、どの指標を重視したか（Gain）、および「その指標が高いと株価を上げる（＋）／下げる（−）どちらに作用したか（SHAP値）」を可視化しています。"
+    "なお、この重要度は学習データにおける傾向であり、将来も同じ指標が有効である保証はありません。"
 )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def compute_shap_values(_model, _X):
+    """SHAP値を計算してキャッシュする。
+    銘柄・期間が変わらない限り（サイドバーの他のスライダー操作では）
+    再計算しないようにするための切り出し。"""
+    explainer = shap.TreeExplainer(_model)
+    shap_res = explainer(_X)
+
+    if hasattr(shap_res, "values"):
+        shap_array = np.array(shap_res.values, dtype=float)
+    else:
+        shap_array = np.array(shap_res, dtype=float)
+
+    if shap_array.ndim == 3:
+        shap_array = shap_array[:, :, 0]
+
+    return shap_array
 
 col_imp1, col_imp2 = st.columns(2)
 
@@ -603,19 +574,8 @@ with col_imp1:
 with col_imp2:
     st.markdown("##### 2. プラス/マイナス影響の方向性 (SHAP Summary)")
     try:
-        explainer = shap.TreeExplainer(model)
-        shap_res = explainer(X)
+        shap_array = compute_shap_values(model, X)
 
-        # SHAP値の型を安全に標準化
-        if hasattr(shap_res, "values"):
-            shap_array = np.array(shap_res.values, dtype=float)
-        else:
-            shap_array = np.array(shap_res, dtype=float)
-
-        if shap_array.ndim == 3:
-            shap_array = shap_array[:, :, 0]
-
-        # 日本語フォントが利用可能な場合は日本語表記、未導入時は文字化けを防ぐため英語表記に切替
         if HAS_JAPANIZE:
             X_shap = X.rename(columns=FEATURE_LABELS_JP)
         else:
@@ -628,7 +588,7 @@ with col_imp2:
         plt.tight_layout()
         st.pyplot(fig_shap)
         plt.close(fig_shap)
-        
+
         if not HAS_JAPANIZE:
             st.caption("※日本語フォントライブラリ未導入のためY軸は英語表記です（`requirements.txt` に `japanize-matplotlib` を追加すると日本語化されます）。")
     except Exception as e:
@@ -645,9 +605,6 @@ with st.expander("📖 SHAPグラフの見方ガイド"):
 
 st.markdown("---")
 
-# --------------------------------------------------
-# 7. 過去の実績ローソク足チャート
-# --------------------------------------------------
 with st.expander("📊 過去のテクニカル分析チャート（ローソク足）を表示"):
     fig = go.Figure()
     fig.add_trace(
