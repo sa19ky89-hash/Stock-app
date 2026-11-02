@@ -37,66 +37,66 @@ st.title("📈 株価予測 & テクニカル分析ダッシュボード")
 UNLISTED_COMPANIES = {}
 
 # --------------------------------------------------
-# 企業名・指数 ➔ (正式表示名, ティッカーコード) 変換辞書
-# TOPIX Core30 ＋ 日米主要銘柄
+# 企業名・指数 ➔ (正式表示名, ティッカーコード, ロゴURL) 変換辞書
 # --------------------------------------------------
 COMPANY_MAP = {
     # 指数
-    "日経平均": ("日経平均株価", "^N225"),
-    "S&P500": ("S&P 500", "^GSPC"),
-    "ナスダック": ("NASDAQ Composite", "^IXIC"),
+    "日経平均": ("日経平均株価", "^N225", None),
+    "S&P500": ("S&P 500", "^GSPC", None),
+    "ナスダック": ("NASDAQ Composite", "^IXIC", None),
     
     # TOPIX Core30 & 日本主要銘柄
-    "トヨタ": ("トヨタ自動車", "7203.T"),
-    "ソニー": ("ソニーグループ", "6758.T"),
-    "キーエンス": ("キーエンス", "6861.T"),
-    "NTT": ("日本電信電話", "9432.T"),
-    "三菱UFJ": ("三菱UFJフィナンシャル・グループ", "8306.T"),
-    "ファストリ": ("ファーストリテイリング", "9983.T"),
-    "信越化学": ("信越化学工業", "4063.T"),
-    "三井住友": ("三井住友フィナンシャルグループ", "8316.T"),
-    "日立": ("日立製作所", "6501.T"),
-    "伊藤忠": ("伊藤忠商事", "8001.T"),
-    "三菱商事": ("三菱商事", "8058.T"),
-    "三井物産": ("三井物産", "8031.T"),
-    "ホンダ": ("本田技研工業", "7267.T"),
-    "KDDI": ("KDDI", "9433.T"),
-    "東京エレクトロン": ("東京エレクトロン", "8035.T"),
-    "ソフトバンクG": ("ソフトバンクグループ", "9984.T"),
-    "任天堂": ("任天堂", "7974.T"),
-    "ダイキン": ("ダイキン工業", "6367.T"),
-    "武田薬品": ("武田薬品工業", "4502.T"),
-    "みずほ": ("みずほフィナンシャルグループ", "8411.T"),
-    "リクルート": ("リクルートホールディングス", "6098.T"),
-    "デンソー": ("デンソー", "6902.T"),
-    "第一三共": ("第一三共", "4568.T"),
-    "SMC": ("SMC", "6273.T"),
-    "村田製作所": ("村田製作所", "6981.T"),
-    "オリックス": ("オリックス", "8591.T"),
-    "アステラス": ("アステラス製薬", "4503.T"),
-    "丸紅": ("丸紅", "8002.T"),
-    "パナソニック": ("パナソニック ホールディングス", "6752.T"),
-    "キヤノン": ("キヤノン", "7751.T"),
-    "三菱重工": ("三菱重工業", "7011.T"),
-    "川崎重工": ("川崎重工業", "7012.T"),
-    "IHI": ("IHI", "7013.T"),
-    "レーザーテック": ("レーザーテック", "6920.T"),
-    "楽天": ("楽天グループ", "4755.T"),
+    "トヨタ": ("トヨタ自動車", "7203.T", "https://logo.clearbit.com/global.toyota"),
+    "ソニー": ("ソニーグループ", "6758.T", "https://logo.clearbit.com/sony.com"),
+    "キーエンス": ("キーエンス", "6861.T", "https://logo.clearbit.com/keyence.co.jp"),
+    "NTT": ("日本電信電話", "9432.T", "https://logo.clearbit.com/ntt.co.jp"),
+    "三菱UFJ": ("三菱UFJフィナンシャル・グループ", "8306.T", "https://logo.clearbit.com/mufg.jp"),
+    "ファストリ": ("ファーストリテイリング", "9983.T", "https://logo.clearbit.com/fastretailing.com"),
+    "信越化学": ("信越化学工業", "4063.T", "https://logo.clearbit.com/shinetsu.co.jp"),
+    "三井住友": ("三井住友フィナンシャルグループ", "8316.T", "https://logo.clearbit.com/smfg.co.jp"),
+    "日立": ("日立製作所", "6501.T", "https://logo.clearbit.com/hitachi.co.jp"),
+    "伊藤忠": ("伊藤忠商事", "8001.T", "https://logo.clearbit.com/itochu.co.jp"),
+    "三菱商事": ("三菱商事", "8058.T", "https://logo.clearbit.com/mitsubishicorp.com"),
+    "三井物産": ("三井物産", "8031.T", "https://logo.clearbit.com/mitsui.com"),
+    "ホンダ": ("本田技研工業", "7267.T", "https://logo.clearbit.com/global.honda"),
+    "KDDI": ("KDDI", "9433.T", "https://logo.clearbit.com/kddi.com"),
+    "東京エレクトロン": ("東京エレクトロン", "8035.T", "https://logo.clearbit.com/tel.com"),
+    "ソフトバンクG": ("ソフトバンクグループ", "9984.T", "https://logo.clearbit.com/group.softbank"),
+    "任天堂": ("任天堂", "7974.T", "https://logo.clearbit.com/nintendo.co.jp"),
+    "ダイキン": ("ダイキン工業", "6367.T", "https://logo.clearbit.com/daikin.co.jp"),
+    "武田薬品": ("武田薬品工業", "4502.T", "https://logo.clearbit.com/takeda.com"),
+    "みずほ": ("みずほフィナンシャルグループ", "8411.T", "https://logo.clearbit.com/mizuho-fg.co.jp"),
+    "リクルート": ("リクルートホールディングス", "6098.T", "https://logo.clearbit.com/recruit-holdings.com"),
+    "デンソー": ("デンソー", "6902.T", "https://logo.clearbit.com/denso.com"),
+    "第一三共": ("第一三共", "4568.T", "https://logo.clearbit.com/daiichisankyo.com"),
+    "SMC": ("SMC", "6273.T", "https://logo.clearbit.com/smcworld.com"),
+    "村田製作所": ("村田製作所", "6981.T", "https://logo.clearbit.com/murata.com"),
+    "太陽誘電": ("太陽誘電", "6976.T", "https://logo.clearbit.com/yuden.co.jp"),
+    "オリックス": ("オリックス", "8591.T", "https://logo.clearbit.com/orix.co.jp"),
+    "アステラス": ("アステラス製薬", "4503.T", "https://logo.clearbit.com/astellas.com"),
+    "丸紅": ("丸紅", "8002.T", "https://logo.clearbit.com/marubeni.com"),
+    "パナソニック": ("パナソニック ホールディングス", "6752.T", "https://logo.clearbit.com/holdings.panasonic"),
+    "キヤノン": ("キヤノン", "7751.T", "https://logo.clearbit.com/global.canon"),
+    "三菱重工": ("三菱重工業", "7011.T", "https://logo.clearbit.com/mhi.com"),
+    "川崎重工": ("川崎重工業", "7012.T", "https://logo.clearbit.com/khi.co.jp"),
+    "IHI": ("IHI", "7013.T", "https://logo.clearbit.com/ihi.co.jp"),
+    "レーザーテック": ("レーザーテック", "6920.T", "https://logo.clearbit.com/lasertec.co.jp"),
+    "楽天": ("楽天グループ", "4755.T", "https://logo.clearbit.com/corp.rakuten.co.jp"),
     
     # 宇宙・新興関連
-    "アクセルスペース": ("アクセルスペースHD", "402A.T"),
-    "アストロスケール": ("アストロスケールHD", "186A.T"),
-    "ispace": ("ispace", "9348.T"),
-    "キオクシア": ("キオクシアHD", "285A.T"),
+    "アクセルスペース": ("アクセルスペースHD", "402A.T", "https://logo.clearbit.com/axelspace.com"),
+    "アストロスケール": ("アストロスケールHD", "186A.T", "https://logo.clearbit.com/astroscale.com"),
+    "ispace": ("ispace", "9348.T", "https://logo.clearbit.com/ispace-inc.com"),
+    "キオクシア": ("キオクシアHD", "285A.T", "https://logo.clearbit.com/kioxia.com"),
     
     # 米国主要銘柄
-    "アップル": ("Apple", "AAPL"),
-    "エヌビディア": ("NVIDIA", "NVDA"),
-    "マイクロソフト": ("Microsoft", "MSFT"),
-    "アマゾン": ("Amazon.com", "AMZN"),
-    "グーグル": ("Alphabet (Google)", "GOOGL"),
-    "メタ": ("Meta Platforms", "META"),
-    "テスラ": ("Tesla", "TSLA"),
+    "アップル": ("Apple", "AAPL", "https://logo.clearbit.com/apple.com"),
+    "エヌビディア": ("NVIDIA", "NVDA", "https://logo.clearbit.com/nvidia.com"),
+    "マイクロソフト": ("Microsoft", "MSFT", "https://logo.clearbit.com/microsoft.com"),
+    "アマゾン": ("Amazon.com", "AMZN", "https://logo.clearbit.com/amazon.com"),
+    "グーグル": ("Alphabet (Google)", "GOOGL", "https://logo.clearbit.com/abc.xyz"),
+    "メタ": ("Meta Platforms", "META", "https://logo.clearbit.com/meta.com"),
+    "テスラ": ("Tesla", "TSLA", "https://logo.clearbit.com/tesla.com"),
 }
 
 FEATURES = ['Close', 'Volume', 'SMA_20', 'RSI', 'MACD', 'Return']
@@ -128,7 +128,9 @@ if user_input in UNLISTED_COMPANIES:
     st.stop()
 
 if user_input in COMPANY_MAP:
-    display_name, ticker = COMPANY_MAP[user_input]
+    val = COMPANY_MAP[user_input]
+    display_name = val[0]
+    ticker = val[1]
 else:
     ticker = user_input
     if (
@@ -163,7 +165,7 @@ n_simulations = st.sidebar.slider(
 random_seed = 42
 
 # ==================================================
-# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能
+# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能 (ロゴ対応)
 # ==================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 全銘柄トレンド＆過熱感 スクリーニング")
@@ -172,20 +174,21 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
     with st.spinner("各銘柄の最新データを取得し、テクニカル分析を実行中...（数分かかる場合があります）"):
         trend_records = []
         
-        # 重複を避けるためティッカーのセットを作成
+        # 重複を避けるためティッカーをキーにして情報を集約
         unique_tickers = {}
-        for name, tk in COMPANY_MAP.items():
-            if tk not in unique_tickers.values():
-                unique_tickers[name] = tk
+        for name, val in COMPANY_MAP.items():
+            tk = val[1]
+            logo = val[2] if len(val) >= 3 else None
+            if tk not in unique_tickers:
+                unique_tickers[tk] = {"name": name, "logo": logo}
 
-        for name, tk in unique_tickers.items():
+        for tk, info in unique_tickers.items():
             try:
                 # 分析には直近6ヶ月のデータがあれば十分
                 df_scan = yf.download(tk, period="6mo", progress=False)
                 if df_scan.empty or len(df_scan) < 30:
                     continue
                 
-                # 終値の取得
                 close_scan = df_scan['Close']
                 if isinstance(close_scan, pd.DataFrame):
                     close_scan = close_scan.iloc[:, 0]
@@ -222,7 +225,8 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
                     overheat_status = "🧊 売られすぎ"
                     
                 trend_records.append({
-                    "銘柄名": name,
+                    "ロゴ": info["logo"],
+                    "銘柄名": info["name"],
                     "現在値": last_close_scan,
                     "トレンド状態": trend_status,
                     "SMA20乖離率(%)": (last_close_scan - last_sma20_scan) / last_sma20_scan * 100,
@@ -239,27 +243,36 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
             up_df = trend_df[trend_df["トレンド状態"] == "↗️ 上昇トレンド"].sort_values(by="SMA20乖離率(%)", ascending=False)
             down_df = trend_df[trend_df["トレンド状態"] == "↘️ 下降トレンド"].sort_values(by="SMA20乖離率(%)", ascending=True)
             
+            # 表示用のカラム設定（ロゴ画像のレンダリング等）
+            column_config = {
+                "ロゴ": st.column_config.ImageColumn("ロゴ", help="企業ロゴ"),
+                "現在値": st.column_config.NumberColumn("現在値", format="¥%.1f"),
+                "SMA20乖離率(%)": st.column_config.NumberColumn("SMA20乖離率(%)", format="%+.2f%%"),
+                "RSI": st.column_config.NumberColumn("RSI", format="%.1f")
+            }
+            
             st.markdown("### 📊 本日のトレンド＆過熱感判定結果")
             
             col_up, col_down = st.columns(2)
             with col_up:
                 st.success(f"↗️ 上昇トレンドの銘柄 ({len(up_df)}件)")
-                st.dataframe(up_df[["銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].style.format({
-                    "現在値": "{:,.1f}", 
-                    "SMA20乖離率(%)": "{:+.2f}%",
-                    "RSI": "{:.1f}"
-                }), use_container_width=True)
+                st.dataframe(
+                    up_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
+                    column_config=column_config,
+                    hide_index=True,
+                    use_container_width=True
+                )
                 
             with col_down:
                 st.error(f"↘️ 下降トレンドの銘柄 ({len(down_df)}件)")
-                st.dataframe(down_df[["銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].style.format({
-                    "現在値": "{:,.1f}", 
-                    "SMA20乖離率(%)": "{:+.2f}%",
-                    "RSI": "{:.1f}"
-                }), use_container_width=True)
+                st.dataframe(
+                    down_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
+                    column_config=column_config,
+                    hide_index=True,
+                    use_container_width=True
+                )
                 
     st.markdown("---")
-
 
 @st.cache_data(ttl=3600)
 def load_and_prep_data(symbol, time_period):
