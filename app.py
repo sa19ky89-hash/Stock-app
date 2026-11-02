@@ -1,5 +1,3 @@
-企業ロゴをHTMLの <img> タグに変換して強制的に表示させる修正を組み込んだ、完全版のソースコードです。
-以下のコードをすべてコピーし、お手元のPythonファイル（例: app.py）を上書きして実行してください。
 import datetime
 import lightgbm as lgb
 import matplotlib
