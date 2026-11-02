@@ -165,7 +165,7 @@ n_simulations = st.sidebar.slider(
 random_seed = 42
 
 # ==================================================
-# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能 (ロゴ対応・HTML描画版)
+# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能 (Googleファビコン対応版)
 # ==================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 全銘柄トレンド＆過熱感 スクリーニング")
@@ -178,9 +178,15 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
         unique_tickers = {}
         for name, val in COMPANY_MAP.items():
             tk = val[1]
-            logo = val[2] if len(val) >= 3 else None
+            raw_logo = val[2] if len(val) >= 3 else None
+            logo_url = None
+            if raw_logo:
+                # ClearbitのURLからドメイン名だけを抽出し、安定しているGoogle Favicon APIに変換
+                domain = raw_logo.split("/")[-1]
+                logo_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=64"
+                
             if tk not in unique_tickers:
-                unique_tickers[tk] = {"name": name, "logo": logo}
+                unique_tickers[tk] = {"name": name, "logo": logo_url}
 
         for tk, info in unique_tickers.items():
             try:
@@ -239,51 +245,40 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
         if trend_records:
             trend_df = pd.DataFrame(trend_records)
             
-            # 画像URLをHTMLの<img>タグに変換する関数
-            def make_img_tag(url):
-                if pd.isna(url) or url is None or url == "":
-                    return ""
-                # 少し丸みを持たせた見やすいアイコンサイズで表示
-                return f'<img src="{url}" width="30" style="border-radius: 4px; vertical-align: middle;">'
-            
-            trend_df["ロゴ"] = trend_df["ロゴ"].apply(make_img_tag)
-            
             # 上昇・下降トレンドそれぞれでフィルター
             up_df = trend_df[trend_df["トレンド状態"] == "↗️ 上昇トレンド"].sort_values(by="SMA20乖離率(%)", ascending=False)
             down_df = trend_df[trend_df["トレンド状態"] == "↘️ 下降トレンド"].sort_values(by="SMA20乖離率(%)", ascending=True)
             
-            st.markdown("### 📊 本日のトレンド＆過熱感判定結果")
-            
-            # 乖離率などの数値を整える
-            format_dict = {
-                "現在値": "¥{:.1f}", 
-                "SMA20乖離率(%)": "{:+.2f}%", 
-                "RSI": "{:.1f}"
+            # Streamlit公式のImageColumnで画像を描画
+            column_config = {
+                "ロゴ": st.column_config.ImageColumn("ロゴ", help="企業ロゴ"),
+                "現在値": st.column_config.NumberColumn("現在値", format="¥%.1f"),
+                "SMA20乖離率(%)": st.column_config.NumberColumn("SMA20乖離率(%)", format="%+.2f%%"),
+                "RSI": st.column_config.NumberColumn("RSI", format="%.1f")
             }
-            for col, fmt in format_dict.items():
-                if col in up_df.columns:
-                    up_df[col] = up_df[col].apply(lambda x: fmt.format(x))
-                if col in down_df.columns:
-                    down_df[col] = down_df[col].apply(lambda x: fmt.format(x))
+            
+            st.markdown("### 📊 本日のトレンド＆過熱感判定結果")
             
             col_up, col_down = st.columns(2)
             with col_up:
                 st.success(f"↗️ 上昇トレンドの銘柄 ({len(up_df)}件)")
-                # HTMLとして強制的に描画
-                st.write(
-                    up_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].to_html(escape=False, index=False), 
-                    unsafe_allow_html=True
+                st.dataframe(
+                    up_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
+                    column_config=column_config,
+                    hide_index=True,
+                    use_container_width=True
                 )
                 
             with col_down:
                 st.error(f"↘️ 下降トレンドの銘柄 ({len(down_df)}件)")
-                # HTMLとして強制的に描画
-                st.write(
-                    down_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].to_html(escape=False, index=False), 
-                    unsafe_allow_html=True
+                st.dataframe(
+                    down_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
+                    column_config=column_config,
+                    hide_index=True,
+                    use_container_width=True
                 )
                 
-    st.markdown("---")
+st.markdown("---")
 
 @st.cache_data(ttl=3600)
 def load_and_prep_data(symbol, time_period):
@@ -823,4 +818,3 @@ with st.expander("📊 過去のテクニカル分析チャート（ローソク
         margin=dict(l=20, r=20, t=20, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
-
