@@ -1,3 +1,5 @@
+企業ロゴをHTMLの <img> タグに変換して強制的に表示させる修正を組み込んだ、完全版のソースコードです。
+以下のコードをすべてコピーし、お手元のPythonファイル（例: app.py）を上書きして実行してください。
 import datetime
 import lightgbm as lgb
 import matplotlib
@@ -165,7 +167,7 @@ n_simulations = st.sidebar.slider(
 random_seed = 42
 
 # ==================================================
-# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能 (ロゴ対応)
+# 🔍 全銘柄トレンド＆過熱感 スクリーニング機能 (ロゴ対応・HTML描画版)
 # ==================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 全銘柄トレンド＆過熱感 スクリーニング")
@@ -239,37 +241,48 @@ if st.sidebar.button("全銘柄の現在のトレンドを判定する"):
         if trend_records:
             trend_df = pd.DataFrame(trend_records)
             
+            # 画像URLをHTMLの<img>タグに変換する関数
+            def make_img_tag(url):
+                if pd.isna(url) or url is None or url == "":
+                    return ""
+                # 少し丸みを持たせた見やすいアイコンサイズで表示
+                return f'<img src="{url}" width="30" style="border-radius: 4px; vertical-align: middle;">'
+            
+            trend_df["ロゴ"] = trend_df["ロゴ"].apply(make_img_tag)
+            
             # 上昇・下降トレンドそれぞれでフィルター
             up_df = trend_df[trend_df["トレンド状態"] == "↗️ 上昇トレンド"].sort_values(by="SMA20乖離率(%)", ascending=False)
             down_df = trend_df[trend_df["トレンド状態"] == "↘️ 下降トレンド"].sort_values(by="SMA20乖離率(%)", ascending=True)
             
-            # 表示用のカラム設定（ロゴ画像のレンダリング等）
-            column_config = {
-                "ロゴ": st.column_config.ImageColumn("ロゴ", help="企業ロゴ"),
-                "現在値": st.column_config.NumberColumn("現在値", format="¥%.1f"),
-                "SMA20乖離率(%)": st.column_config.NumberColumn("SMA20乖離率(%)", format="%+.2f%%"),
-                "RSI": st.column_config.NumberColumn("RSI", format="%.1f")
-            }
-            
             st.markdown("### 📊 本日のトレンド＆過熱感判定結果")
+            
+            # 乖離率などの数値を整える
+            format_dict = {
+                "現在値": "¥{:.1f}", 
+                "SMA20乖離率(%)": "{:+.2f}%", 
+                "RSI": "{:.1f}"
+            }
+            for col, fmt in format_dict.items():
+                if col in up_df.columns:
+                    up_df[col] = up_df[col].apply(lambda x: fmt.format(x))
+                if col in down_df.columns:
+                    down_df[col] = down_df[col].apply(lambda x: fmt.format(x))
             
             col_up, col_down = st.columns(2)
             with col_up:
                 st.success(f"↗️ 上昇トレンドの銘柄 ({len(up_df)}件)")
-                st.dataframe(
-                    up_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
-                    column_config=column_config,
-                    hide_index=True,
-                    use_container_width=True
+                # HTMLとして強制的に描画
+                st.write(
+                    up_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].to_html(escape=False, index=False), 
+                    unsafe_allow_html=True
                 )
                 
             with col_down:
                 st.error(f"↘️ 下降トレンドの銘柄 ({len(down_df)}件)")
-                st.dataframe(
-                    down_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]],
-                    column_config=column_config,
-                    hide_index=True,
-                    use_container_width=True
+                # HTMLとして強制的に描画
+                st.write(
+                    down_df[["ロゴ", "銘柄名", "現在値", "SMA20乖離率(%)", "RSI", "過熱感"]].to_html(escape=False, index=False), 
+                    unsafe_allow_html=True
                 )
                 
     st.markdown("---")
